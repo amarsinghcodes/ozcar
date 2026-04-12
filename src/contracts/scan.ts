@@ -44,7 +44,7 @@ export const ScanOutputSchema = z.object({
   scanId: ScanIdSchema,
   createdAt: IsoTimestampSchema,
   findings: z.array(ScanFindingSchema),
-  mode: z.enum(["dry-run", "live"]),
+  mode: z.enum(["dry-run"]),
   summary: z.string().trim().min(1),
 });
 

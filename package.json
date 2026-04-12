@@ -7,7 +7,7 @@
     "ozcar": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.pi.json",
     "test": "vitest run"
   },
   "devDependencies": {

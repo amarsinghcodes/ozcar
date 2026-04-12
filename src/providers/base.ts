@@ -15,87 +15,17 @@ export type ProviderPhase = z.infer<typeof ProviderPhaseSchema>;
 export const ProviderSelectionSchema = z.enum(["auto", "override"]);
 export type ProviderSelection = z.infer<typeof ProviderSelectionSchema>;
 
-export type ProviderAuthStatus = "ready" | "missing" | "unknown";
-
 export interface ProviderCapabilities {
   readonly modelOverride: boolean;
   readonly plan: boolean;
   readonly scan: boolean;
 }
 
-export interface ProviderRetryPolicy {
-  readonly maxAttempts: number;
-  readonly retryDelayMs: number;
-  readonly retryOnParseFailure: boolean;
-}
-
-export interface ProviderCommandSpec {
-  readonly args: readonly string[];
-  readonly command: string;
-  readonly cwd: string;
-  readonly stdin?: string;
-}
-
-export interface ProviderCommandResult {
-  readonly exitCode: number | null;
-  readonly signal: NodeJS.Signals | null;
-  readonly stderr: string;
-  readonly stdout: string;
-}
-
-export interface ProviderInvocationBuildOptions {
-  readonly cwd: string;
-  readonly model: string;
-  readonly phase: ProviderPhase;
-  readonly prompt: string;
-  readonly promptFile: string;
-  readonly responseFile: string;
-  readonly schemaFile: string;
-  readonly schemaText: string;
-}
-
-export interface ProviderAuthResult {
-  readonly message: string;
-  readonly status: ProviderAuthStatus;
-}
-
-export interface ProviderFailureClassification {
-  readonly code: string;
-  readonly message: string;
-  readonly retryable: boolean;
-}
-
-export interface ProviderFailureClassificationOptions extends ProviderCommandResult {
-  readonly parseError?: string;
-}
-
-export interface ProviderParsedResponse {
-  readonly format: string;
-  readonly rawText: string;
-}
-
 export interface ProviderDefinition {
   readonly name: ProviderName;
-  readonly command: string;
   readonly capabilities: ProviderCapabilities;
   readonly defaultModels: Record<ProviderPhase, string>;
   readonly detectionCommands: readonly string[];
-  readonly guidance: {
-    readonly auth: string;
-    readonly install: string;
-  };
-  readonly retryPolicy: ProviderRetryPolicy;
-  readonly authCommandArgs: readonly string[];
-  readonly versionCommandArgs: readonly string[];
-  buildInvocation(options: ProviderInvocationBuildOptions): ProviderCommandSpec;
-  classifyFailure(options: ProviderFailureClassificationOptions): ProviderFailureClassification;
-  parseAuthResult(result: ProviderCommandResult): ProviderAuthResult;
-  parseResponse(options: {
-    readonly responseText?: string;
-    readonly stderr: string;
-    readonly stdout: string;
-  }): ProviderParsedResponse;
-  parseVersion(result: ProviderCommandResult): string | null;
 }
 
 export interface ResolvedProvider extends ProviderDefinition {
@@ -109,16 +39,6 @@ export interface ResolveProviderOptions {
   readonly env?: NodeJS.ProcessEnv;
   readonly isCommandAvailable?: (command: string, env: NodeJS.ProcessEnv) => Promise<boolean>;
   readonly requested?: string;
-}
-
-export interface ResolveStoredProviderOptions {
-  readonly env?: NodeJS.ProcessEnv;
-  readonly isCommandAvailable?: (command: string, env: NodeJS.ProcessEnv) => Promise<boolean>;
-}
-
-export interface ProviderSnapshotLike {
-  readonly name: ProviderName;
-  readonly selection: ProviderSelection;
 }
 
 export class ProviderResolutionError extends Error {
@@ -148,7 +68,7 @@ export async function resolveProvider(options: ResolveProviderOptions = {}): Pro
       const hints = BUILTIN_PROVIDERS.flatMap((provider) => provider.detectionCommands).join(", ");
       throw new ProviderResolutionError(
         requested,
-        `No built-in provider detected on PATH. Looked for: ${hints}. Install Codex CLI or Claude Code, or use --provider <codex|claude> to force an explicit preflight check.`,
+        `No built-in provider detected on PATH. Looked for: ${hints}. Use --provider <codex|claude> to force a provider during a Phase 2 dry run.`,
       );
     }
 
@@ -169,24 +89,6 @@ export async function resolveProvider(options: ResolveProviderOptions = {}): Pro
     detectedProviders,
     requested,
     selection: "override",
-  };
-}
-
-export async function resolveStoredProvider(
-  snapshot: ProviderSnapshotLike,
-  options: ResolveStoredProviderOptions = {},
-): Promise<ResolvedProvider> {
-  const env = options.env ?? process.env;
-  const commandAvailable = options.isCommandAvailable ?? commandExists;
-  const detectedProviders = await detectProviders(commandAvailable, env);
-  const provider = providerByName(snapshot.name);
-
-  return {
-    ...provider,
-    available: detectedProviders.includes(provider.name),
-    detectedProviders,
-    requested: snapshot.selection === "auto" ? "auto" : snapshot.name,
-    selection: snapshot.selection,
   };
 }
 

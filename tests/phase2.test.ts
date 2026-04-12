@@ -133,7 +133,6 @@ describe("phase 2 run seam", () => {
     await fs.mkdir(runRoot, { recursive: true });
 
     const planResult = await runPlanPhase({
-      dryRun: true,
       loop: 1,
       model: "custom-phase2-model",
       provider,
@@ -142,7 +141,6 @@ describe("phase 2 run seam", () => {
       runRoot,
       scanTargets: ["Sample.sol"],
       scope: ["Sample.sol"],
-      targetRoot: workspaceRoot,
     });
 
     const scanResults = await runScanPhase({
@@ -183,7 +181,6 @@ describe("phase 2 run seam", () => {
     await fs.mkdir(runRoot, { recursive: true });
 
     const planResult = await runPlanPhase({
-      dryRun: true,
       loop: 1,
       model: "custom-phase2-model",
       provider: plannedProvider,
@@ -192,7 +189,6 @@ describe("phase 2 run seam", () => {
       runRoot,
       scanTargets: ["Sample.sol"],
       scope: ["Sample.sol"],
-      targetRoot: workspaceRoot,
     });
 
     await expect(

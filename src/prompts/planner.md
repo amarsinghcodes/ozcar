@@ -16,8 +16,4 @@ Provider: {{PROVIDER}} (selection={{PROVIDER_SELECTION}}, model={{PROVIDER_MODEL
 ## Research Direction
 {{RESEARCH_DIRECTION}}
 
-Return JSON only. Do not include markdown, commentary, or code fences.
-The JSON must contain:
-- `objectives`: a non-empty array of loop objectives
-- `scans`: a non-empty array of scan objects with `scanId`, `researchDirection`, and `targets`
-Keep `scanId` values zero-padded to 4 digits and keep the plan scoped to the listed targets.
+Return canonical JSON for `plan.json` with the current scope, objectives, provider snapshot, and scan list.

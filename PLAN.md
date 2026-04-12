@@ -2,355 +2,254 @@
 
 ## Outcome
 
-Build `ozcar` as a TypeScript-only, filesystem-first, resumable audit runner that is ergonomic for real audits by users who already have a Codex or Claude Code account. The completed v1 foundation remains the base contract: durable run storage, gated JSON artifacts, replay, rebuild, and mechanical report generation stay canonical. The next planned slices convert that dry-run foundation into a live provider-backed auditor through a thin execution seam, a higher-level audit UX, and a stable benchmark/export surface.
+Build `ozcar` as a TypeScript-only, project-local Pi extension pack for audit workflows, not as a standalone provider-orchestration CLI. Pi owns the interactive session runtime, auth/login, model registry, provider selection, session tree, and context compaction. `ozcar` owns audit-specific slash commands, tools, skills, prompt packs, JSON artifact contracts, and mechanical report/export generation.
 
-Provider parity follows a strict sequence. First, make the existing `codex` and `claude` CLIs usable through one small live runner with explicit preflight and persisted raw artifacts. Second, make that runner ergonomic with a minimal audit flow and auth-aware diagnostics. Third, optionally add native `ozcar` login/logout and direct API modes if they improve ergonomics without reshaping the repo. Benchmark work begins only after live execution is real.
+The durable v1 outcome is an ergonomic audit loop that runs inside Pi using project-local `.pi/extensions`, `.pi/skills`, `.pi/prompts`, and AGENTS/context files. Scope exploration, alternate hypotheses, and long-running audit branches should use Pi's `/tree`, labels, and branch summaries instead of a parallel run-store conversation system. Audit outputs remain repo-owned and JSON-first so downstream harnesses can rebuild Markdown and benchmark exports from validated findings.
 
-The research that informed this plan was written from `~/oz`. From this repo root, translate those references to parent-relative paths such as `../fuzzing-team-foz/...`, `../apprentice-victor/...`, and `../auditor-bench/...` where applicable. Those repos and upstream projects remain read-only design references unless the user expands scope; `PLAN.md` and `AGENTS.md` are the canonical contract for `ozcar`.
+The research that informed this pivot was written from `~/oz`. From this repo root, translate those references to parent-relative paths such as `../fuzzing-team-foz/...` and `../apprentice-victor/...` where applicable. Upstream Pi repos remain read-only design references; `PLAN.md` and `AGENTS.md` remain the canonical contract for `ozcar`.
 
 ## Architecture Guardrails
 
-- Keep the core runtime TypeScript-only. Short-lived subprocess execution at the provider boundary is allowed for live CLI parity, but do not move core orchestration into shell or Python.
-- Make the run store filesystem-first and resumable. Every phase must leave durable, human-inspectable artifacts.
-- Keep machine contracts JSON-first. `plan.json`, `finding.json`, `triage.json`, `validation.json`, and benchmark exports are canonical; Markdown is generated mechanically from validated JSON.
-- Give every phase a deterministic gate backed by typed validation. Prefer `zod` plus structured parsing over regex-only checks.
-- Keep providers behind one small interface. Detection/preflight, execution, auth, and model defaults must stay behind typed contracts instead of leaking provider-specific control flow into phases.
-- Prefer CLI-backed provider execution first. Native OAuth and direct API transports are later phases, not prerequisites for Claude/Codex parity.
-- Keep the dry-run fixture seam even after live execution ships. Replayable fixture coverage remains part of the test strategy.
-- If adopting `@mariozechner/pi-ai`, limit scope to OAuth/provider helpers or vendored patterns. Do not import the broader `pi-mono` coding-agent stack, TUI, or session framework.
-- Any `pi-ai` reuse must cross the current CommonJS/ESM boundary intentionally. Do not let module-format interop become implicit repo-wide drift.
-- Generate `summary.md`, `confirmed-findings.md`, and benchmark-facing exports mechanically from validated findings.
-- Ship one built-in Solidity audit pack until the live core loop is stable.
-- Avoid FOZ's duplicated helper layout, CritFinder's monolithic bash orchestrator, and plugin-surface creep.
+- Keep the audit-specific code TypeScript-only.
+- Pi owns provider auth, `/login`, model registry, provider resolution, session storage, and tree navigation. Do not add a repo-owned live provider runtime, CLI preflight layer, OAuth store, or duplicate conversation tree.
+- Prefer Pi built-ins and project-local extension packaging. Put user-facing workflow entrypoints in `.pi/extensions/`, `.pi/skills/`, `.pi/prompts/`, and `resources_discover` instead of wrapping Pi in another CLI.
+- If provider customization becomes necessary, use `pi.registerProvider()` plus existing `@mariozechner/pi-ai` streaming implementations or thin baseUrl/header/model overrides. Do not copy OAuth or streaming internals from `pi-mono`; treat `custom-provider-anthropic` as an anti-pattern and `custom-provider-gitlab-duo` as the preferred shape.
+- Use Pi session labels, branch summaries, and `/tree` for scope branches, alternative hypotheses, and context recovery. Do not maintain a second session-history state machine inside `ozcar`.
+- Keep machine contracts JSON-first. Findings, triage, validation, and export JSON remain canonical; Markdown reports are rebuilt mechanically from validated JSON.
+- Keep extension modules small and boring. Prefer focused commands, tools, and state helpers over one monolithic extension or duplicated helper trees.
+- Paths outside this repo are read-only design references unless the user expands scope.
 
 ## External Reference Map
 
-- FOZ artifact and regeneration references:
+- Core Pi extension and session docs:
+  - `badlogic/pi-mono/packages/coding-agent/docs/extensions.md`
+  - `badlogic/pi-mono/packages/coding-agent/docs/tree.md`
+  - `badlogic/pi-mono/packages/coding-agent/docs/session.md`
+  - `badlogic/pi-mono/packages/coding-agent/docs/providers.md`
+  - `badlogic/pi-mono/packages/coding-agent/docs/custom-provider.md`
+  - `badlogic/pi-mono/packages/coding-agent/docs/sdk.md`
+  - `badlogic/pi-mono/packages/coding-agent/docs/skills.md`
+- Core Pi examples to mirror:
+  - `badlogic/pi-mono/packages/coding-agent/examples/sdk/06-extensions.ts`
+  - `badlogic/pi-mono/packages/coding-agent/examples/sdk/07-context-files.ts`
+  - `badlogic/pi-mono/packages/coding-agent/examples/sdk/09-api-keys-and-oauth.ts`
+  - `badlogic/pi-mono/packages/coding-agent/examples/extensions/dynamic-resources/index.ts`
+  - `badlogic/pi-mono/packages/coding-agent/examples/extensions/tools.ts`
+  - `badlogic/pi-mono/packages/coding-agent/examples/extensions/questionnaire.ts`
+  - `badlogic/pi-mono/packages/coding-agent/examples/extensions/plan-mode/README.md`
+  - `badlogic/pi-mono/packages/coding-agent/examples/extensions/custom-provider-gitlab-duo/index.ts`
+  - `badlogic/pi-mono/packages/coding-agent/examples/extensions/custom-provider-anthropic/index.ts`
+- Pi ecosystem packaging and context-management references:
+  - `badlogic/pi-skills/README.md`
+  - `nicobailon/pi-boomerang/README.md`
+  - `ttttmr/pi-context/README.md`
+- Existing audit and artifact references worth preserving:
   - `../fuzzing-team-foz/expected-artifacts.md`
   - `../fuzzing-team-foz/scripts/foz-init.js`
-  - `../fuzzing-team-foz/skills/fuzz-bootstrap/scripts/stage_gate.py`
-- CritFinder provider, resume, replay, and test references:
   - `../apprentice-victor/CritFinder/README.md`
-  - `../apprentice-victor/CritFinder/lib/provider.sh`
-  - `../apprentice-victor/CritFinder/orchestrator.sh`
-  - `../apprentice-victor/CritFinder/scripts/run_isolated_scan.sh`
-  - `../apprentice-victor/CritFinder/tests/component-tests.sh`
-- `pi-mono` OAuth and provider references:
-  - `badlogic/pi-mono/packages/ai/README.md`
-  - `badlogic/pi-mono/packages/ai/src/utils/oauth/index.ts`
-  - `badlogic/pi-mono/packages/ai/src/utils/oauth/types.ts`
-  - `badlogic/pi-mono/packages/ai/src/utils/oauth/anthropic.ts`
-  - `badlogic/pi-mono/packages/ai/src/utils/oauth/openai-codex.ts`
-  - `badlogic/pi-mono/packages/ai/src/providers/anthropic.ts`
-  - `badlogic/pi-mono/packages/ai/src/providers/openai-codex-responses.ts`
-  - `badlogic/pi-mono/packages/coding-agent/src/core/auth-storage.ts`
-- Benchmark harness references:
-  - `../auditor-bench/src/auditor_benchmark/adapters/ozcar.py`
   - `../auditor-bench/tests/test_adapters.py`
 
-Borrow the explicit artifact contract, guarded regeneration pattern, deterministic gates, provider preflight, retryable live runner seam, narrow auth store, optional OAuth registry, and stable benchmark export surface. Do not copy duplicated helpers, monolithic shell orchestration, markdown-only machine contracts, or the larger `pi-mono` coding-agent runtime.
+Borrow Pi's extension discovery, resource loading, auth storage, model registry, session tree, branch summaries, slash-command ergonomics, and thin provider registration. Borrow FOZ/CritFinder only for durable audit artifact contracts and benchmark-facing export expectations. Do not copy standalone provider runners, OAuth stores, monolithic shell orchestration, or duplicated context-management layers.
 
 ## Target Layout
 
 ```text
+.pi/
+  extensions/
+    ozcar/
+      index.ts
+      commands/
+        audit.ts
+        findings.ts
+        export.ts
+        context.ts
+      tools/
+        capture-finding.ts
+        triage-finding.ts
+        validate-finding.ts
+      state/
+        audit-session.ts
+        labels.ts
+      resources/
+        prompts/
+        skills/
+      providers/
+        register.ts
+  prompts/
+    audit.md
+    export-findings.md
+  skills/
+    ozcar-audit/
+      SKILL.md
 src/
-  cli.ts
-  commands/
-    init.ts
-    run.ts
-    audit.ts
-    login.ts
-    logout.ts
-    auth.ts
-    resume.ts
-    status.ts
-    replay.ts
-    rebuild.ts
-    doctor.ts
-    export-findings.ts
-  providers/
-    base.ts
-    runtime.ts
-    codex.ts
-    claude.ts
-  phases/
-    plan.ts
-    scan.ts
-    triage.ts
-    validate.ts
-    summarize.ts
-  gates/
-    plan.ts
-    scan.ts
-    triage.ts
-    validate.ts
   contracts/
-    run.ts
-    plan.ts
-    scan.ts
+    audit.ts
     finding.ts
     triage.ts
     validation.ts
-    provider-execution.ts
     export.ts
-  store/
-    run-store.ts
-    lock.ts
-    events.ts
-    auth-store.ts
-  prompts/
-    planner.md
-    scanner.md
-    triager.md
-    validator.md
   reports/
     summary.ts
     confirmed-findings.ts
     export-findings.ts
+  artifacts/
+    store.ts
+    rebuild.ts
+tests/
+  extension/
+  contracts/
+  reports/
 ```
 
-Run artifacts should converge on:
+Audit outputs should converge on:
 
 ```text
 .ai-auditor/
-  runs/<run-id>/
-    run.json
-    memory.md
+  audits/<audit-id>/
+    audit.json
+    scope.json
+    findings/
+      <finding-id>/
+        finding.json
+        triage.json
+        validation.json
     summary.md
     confirmed-findings.md
     exports/
       findings.json
-    provider/
-      preflight.json
-    events.jsonl
-    loops/0001/
-      plan.json
-      plan-prompt.md
-      plan-stdout.txt
-      plan-stderr.txt
-      scans/
-        0001/
-          request.json
-          prompt.md
-          stdout.txt
-          stderr.txt
-          output.json
-      triage/
-      validated/
-      rejected/
-      pending/
-      loop-summary.md
 ```
+
+Pi session transcripts, tree state, labels, and branch summaries remain under Pi's session store. `ozcar` should export from that session context rather than duplicating it.
 
 ## Non-Goals For Current Program
 
-- A public plugin API or prompt-pack marketplace
-- Multiple built-in audit packs before the live core loop is stable
-- Agent-authored canonical summaries
-- Helper duplication across install locations
-- Importing the full `pi-mono` coding-agent stack
-- Native OAuth before CLI-backed live execution works end to end
-- Headline benchmark comparisons before live provider execution exists
+- A repo-owned live provider runner, preflight engine, or OAuth/token store
+- A second conversation/session store parallel to Pi's session tree
+- Copying `pi-mono` provider/OAuth/streaming internals into this repo
+- A public plugin marketplace beyond Pi's existing extension/skill/package surfaces
+- Multiple audit packs before the core extension workflow is stable
+- Agent-authored canonical reports
 - Shell- or Python-based core orchestration
+- Benchmark claims based on dry-run fixtures or transcript scraping
 
 ## Phase Plan
 
-### Phase 1: Workspace Foundation And Run Store
+### Phase 1: Pivot Reset And Contract Cut
 
 Status: complete
 
 Objective:
-Establish the TypeScript workspace, CLI entrypoint, durable run-store contract, and typed module skeleton that later phases can extend without reshaping the repo.
+Roll back the abandoned live-provider slice, stop growing the standalone provider runtime, and replace the canonical roadmap with a Pi-extension-first contract.
 
 Deliverables:
-- package/tooling files for a runnable TypeScript CLI, tests, and validation scripts
-- `src/cli.ts`
-- `src/commands/{init,run,resume,status,replay,rebuild,doctor}.ts`
-- `src/contracts/{run,plan,finding,triage,validation}.ts`
-- `src/store/{run-store,lock,events}.ts`
-- minimal tests for run directory creation, locking, and event append or reload behavior
+- rollback of the failed Phase 6 live-provider runtime additions
+- updated `PLAN.md` and repo-local artifacts documenting the pivot
+- no repo-owned live provider runtime, preflight contract, or raw provider-attempt capture remaining in active code
 
 Acceptance criteria:
-- `npm run build` succeeds
-- `npm test` covers run creation, resume-safe reopen, lock contention, and event append semantics
-- a dry local invocation can create `.ai-auditor/runs/<run-id>/run.json` and `events.jsonl`
+- the Phase 6 live-provider files are removed or restored to the pre-slice state
+- `npm run build` and `npm test` pass on the reverted dry-run seam
+- `PLAN.md` no longer targets repo-owned provider/OAuth/runtime work as the primary path
 
-### Phase 2: Plan And Scan Phases
+### Phase 2: Project-Local Extension Scaffold
 
 Status: complete
 
 Objective:
-Implement provider selection plus the `plan` and `scan` phases with deterministic gates and resumable artifact output.
+Create the project-local Pi extension entrypoint and resource discovery surface that turns this repo into an ergonomic Pi add-on instead of a separate orchestrator.
 
 Deliverables:
-- `src/providers/{base,codex,claude}.ts`
-- `src/prompts/{planner,scanner}.md`
-- `src/phases/{plan,scan}.ts`
-- `src/gates/{plan,scan}.ts`
+- `.pi/extensions/ozcar/index.ts`
+- project-local `.pi/skills/` and `.pi/prompts/` surfaces, either directly or through `resources_discover`
+- minimal slash commands for loading the audit workflow and exposing repo-local help
+- README or usage notes for Pi-first setup inside this repo
 
 Acceptance criteria:
-- provider detection and explicit override are supported through one small interface
-- loop `0001` can emit `plan.json` plus replayable scan artifacts
-- gate failures are deterministic and actionable
+- opening Pi in this repo auto-discovers the `ozcar` extension or can load it with one local path
+- `/reload` keeps the extension and its resources coherent
+- the core audit workflow is entered through Pi commands/tools rather than `ozcar run`
 
-### Phase 3: Triage, Validate, And Summarize
-
-Status: complete
-
-Objective:
-Turn raw findings into gated triage and validation outputs, then generate human-facing reports from validated JSON only.
-
-Deliverables:
-- `src/prompts/{triager,validator}.md`
-- `src/phases/{triage,validate,summarize}.ts`
-- `src/gates/{triage,validate}.ts`
-- `src/reports/{summary,confirmed-findings}.ts`
-
-Acceptance criteria:
-- triage and validation outputs are stored as typed JSON sidecars
-- `summary.md` and `confirmed-findings.md` are rebuilt mechanically from validated findings
-- rejected and pending findings stay separated from validated findings
-
-### Phase 4: Operational Commands And Replay
-
-Status: complete
-
-Objective:
-Wire the runtime into the full operational CLI and support safe resume, replay, rebuild, and doctor flows from filesystem state.
-
-Deliverables:
-- complete command handlers for `run`, `resume`, `status`, `replay`, `rebuild`, and `doctor`
-- replay support for isolated scan reruns
-- doctor checks for missing, invalid, or stale artifacts
-
-Acceptance criteria:
-- `resume` continues from durable state without hidden session memory
-- `replay` can rerun a scan from stored inputs
-- `rebuild` regenerates reports from validated artifacts only
-- `doctor` identifies missing contracts, gate failures, and invalid report state
-
-### Phase 5: Verification Hardening And V1 Readiness
-
-Status: complete
-
-Objective:
-Harden the seams that are most likely to drift: parsers, dedup logic, summary rebuilds, replay behavior, and artifact gates.
-
-Deliverables:
-- fixture-backed component tests for provider detection, parser or dedup behavior, replay, gate failures, and report rebuilds
-- a sample end-to-end run fixture that proves resumability and deterministic report generation
-
-Acceptance criteria:
-- seam tests cover the core failure modes called out in the research
-- a sample run can be replayed and rebuilt without manual patching
-- the v1 surface remains TypeScript-only and phase-gated
-
-### Phase 6: Live Provider Runner And Preflight
+### Phase 3: Audit Workflow And Tree Navigation
 
 Status: current
 
 Objective:
-Replace the metadata-only provider seam with a live CLI-backed execution contract for `plan` and `scan`, while preserving the durable store, dry-run fixtures, and deterministic parsing gates.
+Move scope capture, audit execution guidance, finding capture, and branch management into Pi commands/tools that explicitly exploit the session tree.
 
 Deliverables:
-- `src/providers/runtime.ts` defining preflight and execution operations shared by Codex and Claude
-- upgraded `src/providers/{codex,claude}.ts` with CLI invocation metadata, retries, and parsed execution results
-- live execution updates in `src/phases/{plan,scan}.ts` and `src/commands/{run,resume,replay,doctor}.ts`
-- raw provider artifact capture for prompt, stdout, stderr, exit status, and parsed output
-- deterministic seam tests for preflight, retries, parsing, and live-artifact persistence
+- slash commands for starting or resuming an audit session, checking audit state, and exporting results
+- tools for structured finding capture, triage, validation, and user clarification when needed
+- label or branch-summary conventions for hypotheses, confirmed findings, and abandoned branches
+- integration guidance for `/tree`, labels, and context summarization
 
 Acceptance criteria:
-- a logged-in `codex` or `claude` CLI can complete a real `run` without `--dry-run`
-- preflight fails with actionable install or login guidance when the selected provider is unavailable or unusable
-- plan and scan persist raw provider artifacts alongside canonical JSON outputs
-- `--dry-run` remains available for deterministic fixture and replay coverage
+- a user can branch alternative audit directions and recover them through `/tree`
+- audit state restores correctly on `session_start` and `session_tree`
+- long audits can summarize or checkpoint context without losing the canonical JSON finding state
 
-### Phase 7: Ergonomic Audit UX
+### Phase 4: JSON Artifact Export And Mechanical Reports
 
 Status: planned
 
 Objective:
-Make the live runner usable as a one-command audit tool for users who already have Codex or Claude Code access.
+Materialize durable audit artifacts from Pi session state into repo-owned JSON contracts and mechanically rebuilt reports.
 
 Deliverables:
-- `src/commands/audit.ts` or equivalent high-level audit wrapper over the lower-level operational commands
-- smarter scope, target, and research defaults inferred from the target repository when safe
-- auth-aware `status` and `doctor` output that reports detected provider, model, and missing prerequisites
-- a root quickstart or README that documents the first-run Claude and Codex paths
+- shared TypeScript contracts for audit, finding, triage, validation, and export data
+- artifact storage helpers that write deterministic JSON under `.ai-auditor/`
+- mechanical builders for `summary.md`, `confirmed-findings.md`, and benchmark-facing export JSON
+- deterministic tests for rebuilds, stale artifact detection, and export stability
 
 Acceptance criteria:
-- a user with a logged-in `codex` or `claude` CLI can run `ozcar audit <target-root>` with minimal required flags
-- `doctor` reports provider detection, auth hints, model resolution, and missing prerequisites clearly
-- the first-run path is documented without requiring users to understand the full low-level `run` flag surface
-- advanced `run` flags remain available for reproducibility, replay, and bench harnesses
+- validated findings can rebuild all Markdown reports without re-running the session
+- exported JSON is deterministic and benchmark-friendly
+- report drift is detected from stored JSON contracts rather than transcript text
 
-### Phase 8: Native Auth Surface And Model Introspection
+### Phase 5: Thin Provider Overrides And Model Presets
 
 Status: planned
 
 Objective:
-Add optional `ozcar`-managed login, logout, auth status, and model discovery without making native auth a prerequisite for basic parity.
+Add only the minimum provider or model customization required for audit ergonomics while keeping Pi responsible for auth and streaming.
 
 Deliverables:
-- `src/store/auth-store.ts` with locked `auth.json` persistence and refresh-safe writes
-- `src/commands/{login,logout,auth}.ts` and any supporting model-listing surface needed for provider inspection
-- a small OAuth adapter layer, ideally reusing `@mariozechner/pi-ai/oauth` patterns or a narrow vendored equivalent
-- deterministic tests for auth storage, refresh paths, locking, and redacted status output
+- optional model presets, audit-specific system-prompt helpers, or thin `registerProvider()` overrides
+- any provider-specific extension code kept behind one small module and delegated to Pi or pi-ai primitives
+- verification that custom provider work is not required when Pi built-ins already cover the use case
 
 Acceptance criteria:
-- a user can log in, log out, and inspect auth state without editing raw token files
-- the CLI-backed runner continues to work when users prefer upstream CLI auth instead of `ozcar login`
-- concurrent auth refresh or login work does not corrupt stored credentials
-- `pi-mono` reuse stays limited to the small OAuth and auth-store seam and does not pull in the broader coding-agent runtime
+- audit users can select supported Pi providers/models without repo-owned login flows
+- any custom provider code is limited to thin configuration or built-in-stream delegation
+- no copied OAuth or custom streaming stacks remain in `ozcar`
 
-### Phase 9: Direct API Provider Mode
+### Phase 6: Benchmark Export And Comparative Verification
 
 Status: planned
 
 Objective:
-Add an opt-in direct API transport for Claude and Codex so `ozcar` can run without the upstream CLI when stored credentials or API keys are available.
+Expose a stable export surface so live Pi-hosted `ozcar` audits can be compared against other auditors without scraping session files.
 
 Deliverables:
-- direct API transport implementations for Codex and Claude behind the same provider runtime interface
-- provider-specific request shaping for OAuth and API-key modes, including any account or identity headers required by the upstream services
-- mode selection and validation so CLI-backed and direct API execution can coexist without ambiguity
-- deterministic tests for direct transport requests, headers, parsing, and fallback behavior
+- stable `findings.json` export from validated artifact bundles
+- adapter notes or fixtures for downstream benchmark harnesses
+- comparison validation that keeps provider, model, and time-budget assumptions explicit
 
 Acceptance criteria:
-- both providers can execute `plan` and `scan` through direct API mode with stored credentials or environment-backed auth
-- provider-specific header and token requirements are captured in tests
-- CLI-backed mode remains the default until direct API mode reaches comparable reliability
-- adding direct mode does not reshape the phase contracts or durable artifact layout
-
-### Phase 10: Benchmark Export And Comparative Verification
-
-Status: planned
-
-Objective:
-Make live `ozcar` runs benchmarkable against CritFinder and other auditors through a stable export contract and fixture-backed verification.
-
-Deliverables:
-- `src/commands/export-findings.ts` and supporting report code that emit normalized findings directly from validated bundles
-- an explicit export contract under `src/contracts/export.ts`
-- fixture-backed tests for export stability across validated, rejected, and pending findings
-- benchmark guidance that holds provider, model, time budget, and scoring constant across tools
-
-Acceptance criteria:
-- external harnesses can ingest `ozcar` through a stable export surface instead of scraping internal directories
-- benchmark comparisons are run on live provider-backed `ozcar` outputs rather than dry-run fixtures
-- export output clearly distinguishes validated, rejected, and pending findings
-- downstream harness mismatches are treated as adapter work, not as reasons to destabilize `ozcar`'s internal artifact contracts
+- downstream harnesses consume the export surface instead of Pi session transcripts
+- benchmark comparisons operate on exported validated findings, not raw session text
+- adapter drift is treated as downstream integration work rather than a reason to reshape the internal contracts
 
 Current state:
-Phases 1 through 5 are complete and form the stable dry-run foundation. Phase 6 is the current implementation slice and must land before ergonomic UX, native auth, direct API work, or benchmark and export comparisons move forward. Benchmark claims about `ozcar` remain non-authoritative until Phase 6 and Phase 10 both pass.
+The project-local Pi extension scaffold from Phase 2 is in place, validated, and reviewed, including isolated extension discovery and reload coherence proof. The standalone TypeScript CLI and dry-run artifact code remain as transition-era prototype surfaces. The next approved implementation work is Phase 3: move audit workflow, session-tree-aware state restoration, and tree-navigation conventions into Pi commands and tools without pulling Phase 4 through Phase 6 forward.
 
 ## Global Validation Rules
 
 - Phases execute sequentially unless this document explicitly says otherwise.
-- Every implementation slice must add or update tests for new durable seams.
-- Live provider phases must add deterministic seam tests for preflight, execution persistence, parser behavior, and failure handling. Opt-in live-provider smoke tests may supplement those tests but must not replace them.
-- Auth phases must add file-locking, refresh-path, and redaction tests.
-- Export and benchmark phases must add fixture-backed compatibility tests for the normalized export surface.
+- Every implementation slice must add or update tests for the touched extension, contract, or report seam.
+- Extension state that survives reloads or tree navigation must be reconstructed from Pi session entries on `session_start` and `session_tree`.
+- New audit commands or tools must validate against both non-interactive fallbacks and interactive Pi UI behavior where applicable.
+- JSON/report slices must add deterministic rebuild tests from stored contracts.
+- Provider-related work must prove it delegates to Pi or `@mariozechner/pi-ai`; copied OAuth or streaming code is a plan violation.
 - Every persisted implementation run writes `docs/execs/{UTC_TIMESTAMP}_EXEC.md` using the local template.
 - Every persisted review run writes `docs/reviews/{UTC_TIMESTAMP}_REVIEW.md` using the local template.
 - Later phases do not start until earlier phase acceptance criteria pass.
@@ -361,4 +260,5 @@ Phases 1 through 5 are complete and form the stable dry-run foundation. Phase 6 
 2. Read this `PLAN.md`.
 3. Read the newest `docs/plans/*_PLAN.md` record for the active slice.
 4. If implementation has started, read the active `docs/execs/*_EXEC.md`; for review or repair loops, read the corresponding artifact under `docs/reviews/` or `docs/fixes/`.
-5. Continue only the current phase unless the defined gates explicitly move work forward.
+5. Before extension-design work, re-read the relevant Pi references from the External Reference Map instead of relying on memory.
+6. Continue only the current phase unless the defined gates explicitly move work forward.

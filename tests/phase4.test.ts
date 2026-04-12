@@ -373,7 +373,6 @@ async function seedPartialRun(
     });
 
     const planResult = await runPlanPhase({
-      dryRun: true,
       loop: 1,
       provider,
       researchDirection: "Investigate balance accounting invariants.",
@@ -381,7 +380,6 @@ async function seedPartialRun(
       runRoot: handle.paths.runRoot,
       scanTargets: ["Sample.sol"],
       scope: ["Sample.sol"],
-      targetRoot,
     });
 
     await handle.appendEvent({

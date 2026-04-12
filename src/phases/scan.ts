@@ -2,26 +2,20 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { type PlanContract } from "../contracts/plan";
-import { ProviderPreflight } from "../contracts/provider-execution";
 import { ScanFinding, ScanOutput, ScanOutputSchema, ScanRequest, ScanRequestSchema } from "../contracts/scan";
 import { assertPlanGate } from "../gates/plan";
 import { ScanGateResult, assertScanGate } from "../gates/scan";
-import { ResolvedProvider, resolveStoredProvider } from "../providers/base";
-import {
-  ProviderRuntimeDependencies,
-  runLiveScanExecution,
-} from "../providers/runtime";
+import { ResolvedProvider } from "../providers/base";
 
 const SCANNER_PROMPT_SOURCE = "src/prompts/scanner.md";
 
-export interface ScanPhaseOptions extends ProviderRuntimeDependencies {
+export interface ScanPhaseOptions {
   readonly dryRun: boolean;
   readonly dryRunFindings?: readonly ScanFinding[];
   readonly loop: number;
   readonly model?: string;
   readonly now?: () => Date;
   readonly plan: PlanContract;
-  readonly preflight?: ProviderPreflight;
   readonly provider: ResolvedProvider;
   readonly runId: string;
   readonly runRoot: string;
@@ -38,7 +32,7 @@ export interface ScanPhaseResult {
   readonly scanRoot: string;
 }
 
-export interface ReadStoredScanPhaseOptions extends ProviderRuntimeDependencies {
+export interface ReadStoredScanPhaseOptions {
   readonly loop: number;
   readonly now?: () => Date;
   readonly repairOutput?: boolean;
@@ -52,7 +46,7 @@ export interface ReadStoredScanPhaseResult {
   readonly results: ScanPhaseResult[];
 }
 
-export interface ReplayStoredScanPhaseOptions extends ProviderRuntimeDependencies {
+export interface ReplayStoredScanPhaseOptions {
   readonly loop: number;
   readonly now?: () => Date;
   readonly runId: string;
@@ -118,6 +112,7 @@ export async function runScanPhase(options: ScanPhaseOptions): Promise<ScanPhase
       targetRoot: options.targetRoot,
       targets: scan.targets,
     });
+    const output = createScanOutput(request, now, options.dryRunFindings ?? []);
     const promptFile = path.join(scanRoot, "prompt.md");
     const requestFile = path.join(scanRoot, "request.json");
     const outputFile = path.join(scanRoot, "output.json");
@@ -125,23 +120,6 @@ export async function runScanPhase(options: ScanPhaseOptions): Promise<ScanPhase
     await fs.mkdir(scanRoot, { recursive: true });
     await fs.writeFile(promptFile, `${prompt.trimEnd()}\n`, "utf8");
     await fs.writeFile(requestFile, `${JSON.stringify(request, null, 2)}\n`, "utf8");
-
-    const output = options.dryRun
-      ? createDryRunScanOutput(request, now, options.dryRunFindings ?? [])
-      : await buildLiveScanOutput({
-          ...(options.env ? { env: options.env } : {}),
-          ...(options.executeCommand ? { executeCommand: options.executeCommand } : {}),
-          ...(options.isCommandAvailable ? { isCommandAvailable: options.isCommandAvailable } : {}),
-          model: plannedProvider.model,
-          now,
-          ...(options.preflight ? { preflight: options.preflight } : {}),
-          prompt,
-          provider: options.provider,
-          request,
-          runRoot: options.runRoot,
-          ...(options.sleep ? { sleep: options.sleep } : {}),
-        });
-
     await fs.writeFile(outputFile, `${JSON.stringify(output, null, 2)}\n`, "utf8");
 
     await assertScanGate({
@@ -188,16 +166,11 @@ export async function readStoredScanPhase(options: ReadStoredScanPhaseOptions): 
     const scanRoot = path.join(loopRoot, "scans", scan.scanId);
     const result = options.repairOutput
       ? await ensureStoredScanResult({
-          ...(options.env ? { env: options.env } : {}),
-          ...(options.executeCommand ? { executeCommand: options.executeCommand } : {}),
-          ...(options.isCommandAvailable ? { isCommandAvailable: options.isCommandAvailable } : {}),
           loop: options.loop,
           ...(options.now ? { now: options.now } : {}),
           runId: options.runId,
-          runRoot: options.runRoot,
           scanId: scan.scanId,
           scanRoot,
-          ...(options.sleep ? { sleep: options.sleep } : {}),
         })
       : {
           replayed: false,
@@ -225,16 +198,11 @@ export async function readStoredScanPhase(options: ReadStoredScanPhaseOptions): 
 export async function replayStoredScanPhase(options: ReplayStoredScanPhaseOptions): Promise<ScanPhaseResult> {
   const scanRoot = path.join(options.runRoot, "loops", formatSequence(options.loop), "scans", options.scanId);
   return replayStoredScanResult({
-    ...(options.env ? { env: options.env } : {}),
-    ...(options.executeCommand ? { executeCommand: options.executeCommand } : {}),
-    ...(options.isCommandAvailable ? { isCommandAvailable: options.isCommandAvailable } : {}),
     loop: options.loop,
     ...(options.now ? { now: options.now } : {}),
     runId: options.runId,
-    runRoot: options.runRoot,
     scanId: options.scanId,
     scanRoot,
-    ...(options.sleep ? { sleep: options.sleep } : {}),
   });
 }
 
@@ -267,7 +235,11 @@ function resolvePlannedProviderSnapshot(
   return plannedProvider;
 }
 
-function createDryRunScanOutput(request: ScanRequest, now: () => Date, dryRunFindings: readonly ScanFinding[]): ScanOutput {
+function createScanOutput(request: ScanRequest, now: () => Date, dryRunFindings: readonly ScanFinding[]): ScanOutput {
+  if (!request.dryRun) {
+    throw new Error("Phase 2 only supports --dry-run. Non-dry scan execution is not implemented yet.");
+  }
+
   const findings = dryRunFindings.map((finding) => ({
     ...finding,
     locations: [...finding.locations],
@@ -288,55 +260,14 @@ function createDryRunScanOutput(request: ScanRequest, now: () => Date, dryRunFin
   });
 }
 
-async function buildLiveScanOutput(options: ProviderRuntimeDependencies & {
-  readonly model: string;
-  readonly now: () => Date;
-  readonly preflight?: ProviderPreflight;
-  readonly prompt: string;
-  readonly provider: ResolvedProvider;
-  readonly request: ScanRequest;
-  readonly runRoot: string;
-}): Promise<ScanOutput> {
-  const execution = await runLiveScanExecution({
-    ...(options.env ? { env: options.env } : {}),
-    ...(options.executeCommand ? { executeCommand: options.executeCommand } : {}),
-    ...(options.isCommandAvailable ? { isCommandAvailable: options.isCommandAvailable } : {}),
-    invocationRoot: path.join(options.runRoot, "loops", formatSequence(options.request.loop), "scans", options.request.scanId, "provider"),
-    model: options.model,
-    now: options.now,
-    phase: "scan",
-    ...(options.preflight ? { preflight: options.preflight } : {}),
-    prompt: options.prompt,
-    provider: options.provider,
-    runRoot: options.runRoot,
-    ...(options.sleep ? { sleep: options.sleep } : {}),
-    targetRoot: options.request.targetRoot,
-  });
-
-  return ScanOutputSchema.parse({
-    createdAt: options.now().toISOString(),
-    findings: execution.parsed.findings.map((finding) => ({
-      ...finding,
-      locations: [...finding.locations],
-    })),
-    loop: options.request.loop,
-    mode: "live",
-    runId: options.request.runId,
-    scanId: options.request.scanId,
-    schemaVersion: 1,
-    summary: execution.parsed.summary,
-  });
-}
-
 function formatMarkdownList(entries: string[]): string {
   return entries.map((entry) => `- ${entry}`).join("\n");
 }
 
-async function ensureStoredScanResult(options: ProviderRuntimeDependencies & {
+async function ensureStoredScanResult(options: {
   readonly loop: number;
   readonly now?: () => Date;
   readonly runId: string;
-  readonly runRoot: string;
   readonly scanId: string;
   readonly scanRoot: string;
 }): Promise<{ readonly replayed: boolean; readonly result: ScanPhaseResult }> {
@@ -377,11 +308,10 @@ async function readStoredScanResult(options: {
   return buildStoredScanResult(options.scanRoot, gated);
 }
 
-async function replayStoredScanResult(options: ProviderRuntimeDependencies & {
+async function replayStoredScanResult(options: {
   readonly loop: number;
   readonly now?: () => Date;
   readonly runId: string;
-  readonly runRoot: string;
   readonly scanId: string;
   readonly scanRoot: string;
 }): Promise<ScanPhaseResult> {
@@ -393,18 +323,7 @@ async function replayStoredScanResult(options: ProviderRuntimeDependencies & {
     requireOutput: false,
     scanRoot: options.scanRoot,
   });
-  const output = input.request.dryRun
-    ? createDryRunScanOutput(input.request, now, input.request.dryRunFindings ?? [])
-    : await replayLiveStoredScanOutput({
-        ...(options.env ? { env: options.env } : {}),
-        ...(options.executeCommand ? { executeCommand: options.executeCommand } : {}),
-        ...(options.isCommandAvailable ? { isCommandAvailable: options.isCommandAvailable } : {}),
-        now,
-        promptFile: input.promptFile,
-        request: input.request,
-        runRoot: options.runRoot,
-        ...(options.sleep ? { sleep: options.sleep } : {}),
-      });
+  const output = createScanOutput(input.request, now, input.request.dryRunFindings ?? []);
 
   await fs.mkdir(options.scanRoot, { recursive: true });
   await fs.writeFile(input.outputFile, `${JSON.stringify(output, null, 2)}\n`, "utf8");
@@ -417,38 +336,6 @@ async function replayStoredScanResult(options: ProviderRuntimeDependencies & {
   });
 
   return buildStoredScanResult(options.scanRoot, gated);
-}
-
-async function replayLiveStoredScanOutput(options: ProviderRuntimeDependencies & {
-  readonly now: () => Date;
-  readonly promptFile: string;
-  readonly request: ScanRequest;
-  readonly runRoot: string;
-}): Promise<ScanOutput> {
-  const provider = await resolveStoredProvider(
-    {
-      name: options.request.provider.name,
-      selection: options.request.provider.selection,
-    },
-    {
-      ...(options.env ? { env: options.env } : {}),
-      ...(options.isCommandAvailable ? { isCommandAvailable: options.isCommandAvailable } : {}),
-    },
-  );
-  const prompt = await fs.readFile(options.promptFile, "utf8");
-
-  return buildLiveScanOutput({
-    ...(options.env ? { env: options.env } : {}),
-    ...(options.executeCommand ? { executeCommand: options.executeCommand } : {}),
-    ...(options.isCommandAvailable ? { isCommandAvailable: options.isCommandAvailable } : {}),
-    model: options.request.provider.model,
-    now: options.now,
-    prompt,
-    provider,
-    request: options.request,
-    runRoot: options.runRoot,
-    ...(options.sleep ? { sleep: options.sleep } : {}),
-  });
 }
 
 function buildStoredScanResult(scanRoot: string, gated: ScanGateResult): ScanPhaseResult {
