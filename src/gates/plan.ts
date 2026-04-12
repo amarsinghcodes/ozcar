@@ -4,6 +4,7 @@ import path from "node:path";
 import type { ZodIssue } from "zod";
 
 import { PlanContract, PlanContractSchema } from "../contracts/plan";
+import { assertProviderExecutionGate, assertProviderPreflightGate } from "./provider-execution";
 
 export interface PlanGateOptions {
   readonly expectedLoop: number;
@@ -53,6 +54,27 @@ export async function assertPlanGate(options: PlanGateOptions): Promise<PlanGate
       planFile,
       `Plan gate rejected ${planFile}: expected loop ${options.expectedLoop} but found ${plan.loop}.`,
     );
+  }
+
+  if (plan.mode === "live") {
+    const runRoot = path.resolve(options.loopRoot, "..", "..");
+
+    await assertProviderPreflightGate({
+      expectedProvider: {
+        name: plan.provider.name,
+        selection: plan.provider.selection,
+      },
+      runRoot,
+    });
+    await assertProviderExecutionGate({
+      expectedPhase: "plan",
+      expectedProvider: {
+        model: plan.provider.model,
+        name: plan.provider.name,
+        selection: plan.provider.selection,
+      },
+      providerRoot: path.join(options.loopRoot, "provider"),
+    });
   }
 
   return {

@@ -91,6 +91,7 @@ export async function replayCommand(args: string[]): Promise<number> {
           runRoot: handle.paths.runRoot,
           scan: {
             findingCount: result.output.findings.length,
+            mode: result.output.mode,
             scanId: result.scanId,
             summary: result.output.summary,
           },

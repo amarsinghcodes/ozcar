@@ -1,0 +1,48 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ge 1 ] && [ "$1" = "--version" ]; then
+  echo "2.1.76 (Claude Code)"
+  exit 0
+fi
+
+if [ "$#" -ge 2 ] && [ "$1" = "auth" ] && [ "$2" = "status" ]; then
+  if [ "${OZCAR_FAKE_CLAUDE_AUTH:-ready}" = "missing" ]; then
+    echo '{"loggedIn":false}'
+    exit 0
+  fi
+
+  echo '{"loggedIn":true}'
+  exit 0
+fi
+
+STATE_FILE="${OZCAR_FAKE_CLAUDE_STATE:-}"
+SCENARIO="${OZCAR_FAKE_CLAUDE_SCENARIO:-success}"
+
+if [ "$SCENARIO" = "transient-once" ] && [ -n "$STATE_FILE" ]; then
+  COUNT=0
+  if [ -f "$STATE_FILE" ]; then
+    COUNT="$(cat "$STATE_FILE")"
+  fi
+  COUNT=$((COUNT + 1))
+  printf '%s' "$COUNT" > "$STATE_FILE"
+
+  if [ "$COUNT" -eq 1 ]; then
+    echo "rate limit" >&2
+    exit 1
+  fi
+fi
+
+PROMPT=""
+for ARG in "$@"; do
+  PROMPT="$ARG"
+done
+
+case "$PROMPT" in
+  *"Scan ID:"*)
+  printf '%s\n' '{"findings":[{"id":"confirmed-high","locations":["Sample.sol:12"],"rationale":"Balance can be drained before state updates and no compensating invariant check exists.","severity":"high","title":"Missing balance invariant enforcement"},{"id":"pending-medium","locations":["Sample.sol:33"],"rationale":"A medium-severity edge path needs stronger evidence before it can be confirmed.","severity":"medium","title":"Unproven medium-path invariant"},{"id":"rejected-low","locations":["Sample.sol:48"],"rationale":"This low-severity note is kept as noise in the seam and should not be confirmed.","severity":"low","title":"Noise-level event mismatch"}],"summary":"Live scan produced 3 findings for Sample.sol."}'
+  exit 0
+  ;;
+esac
+
+printf '%s\n' '{"objectives":["Establish a durable live plan for loop 0001.","Prepare replayable live scan inputs for Sample.sol.","Preserve the requested research direction."],"scans":[{"scanId":"0001","researchDirection":"Investigate balance accounting invariants.","targets":["Sample.sol"]}]}'

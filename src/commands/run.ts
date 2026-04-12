@@ -7,6 +7,7 @@ import { ScanFinding, ScanFindingSchema } from "../contracts/scan";
 import { runPlanPhase } from "../phases/plan";
 import { runScanPhase } from "../phases/scan";
 import { resolveProvider } from "../providers/base";
+import { ensureProviderPreflight, ProviderPreflightError } from "../providers/runtime";
 import { createRunStore } from "../store/run-store";
 
 const ACTIVE_LOOP = 1;
@@ -15,13 +16,16 @@ export async function runCommand(args: string[]): Promise<number> {
   if (args.includes("--help") || args.includes("-h")) {
     console.log(
       [
-        "Usage: ozcar run --dry-run --run-id <id> [options]",
+        "Usage: ozcar run --run-id <id> [options]",
         "",
-        "Dry operational seam:",
-        "  Emits replayable plan and scan artifacts, then completes triage, validation, and report rebuilds from durable state.",
+        "Live execution:",
+        "  Runs provider preflight once, executes live plan and scan calls, then completes triage, validation, and report rebuilds from durable state.",
+        "",
+        "Dry-run seam:",
+        "  Add --dry-run to emit replayable plan and scan artifacts without live provider calls.",
         "",
         "Fixture seam:",
-        "  Add --finding-fixture <path> to seed replayable dry scan findings into request.json for resume and replay coverage.",
+        "  Add --finding-fixture <path> together with --dry-run to seed replayable scan findings into request.json for resume and replay coverage.",
         "",
         "Options:",
         "  --root <path>                 Workspace root (defaults to cwd)",
@@ -33,16 +37,17 @@ export async function runCommand(args: string[]): Promise<number> {
         "  --objective <value>           Repeatable; may also contain comma-separated entries",
         "  --scan-target <value>         Repeatable; may also contain comma-separated entries",
         "  --research-direction <text>   Required scan direction",
-        "  --finding-fixture <path>      Optional JSON array of dry scan findings for the Phase 3 seam",
-        "  --dry-run                     Required in Phase 2",
+        "  --finding-fixture <path>      Optional JSON array of dry scan findings (requires --dry-run)",
+        "  --dry-run                     Keep plan and scan on the fixture-backed replay seam",
       ].join("\n"),
     );
     return 0;
   }
 
   const parsed = parseRunArgs(args);
-  if (!parsed.dryRun) {
-    throw new Error("Phase 2 only supports --dry-run. Re-run with --dry-run to emit replayable plan and scan artifacts.");
+
+  if (!parsed.dryRun && parsed.findingFixture) {
+    throw new Error("`--finding-fixture` is only supported with `--dry-run`.");
   }
 
   const dryRunFindings = parsed.findingFixture ? await readFindingFixture(parsed.findingFixture) : undefined;
@@ -70,14 +75,25 @@ export async function runCommand(args: string[]): Promise<number> {
       },
       type: "provider.selected",
     });
+
+    const preflight = parsed.dryRun
+      ? undefined
+      : await runProviderPreflight({
+          handle,
+          provider,
+        });
+
     await handle.appendEvent({
       details: {
         loop: ACTIVE_LOOP,
+        mode: parsed.dryRun ? "dry-run" : "live",
       },
       type: "phase.plan.started",
     });
 
     const planResult = await runPlanPhase({
+      dryRun: parsed.dryRun,
+      ...(preflight ? { preflight } : {}),
       loop: ACTIVE_LOOP,
       objectives: parsed.objectives,
       provider,
@@ -86,12 +102,14 @@ export async function runCommand(args: string[]): Promise<number> {
       runRoot: handle.paths.runRoot,
       scanTargets: parsed.scanTargets,
       scope: parsed.scope,
+      targetRoot: handle.run.targetRoot,
       ...(parsed.model ? { model: parsed.model } : {}),
     });
 
     await handle.appendEvent({
       details: {
         loop: ACTIVE_LOOP,
+        mode: planResult.plan.mode,
         planFile: planResult.planFile,
       },
       type: "phase.plan.completed",
@@ -106,6 +124,7 @@ export async function runCommand(args: string[]): Promise<number> {
     await handle.appendEvent({
       details: {
         loop: ACTIVE_LOOP,
+        mode: parsed.dryRun ? "dry-run" : "live",
         scansPlanned: planResult.plan.scans.length,
       },
       type: "phase.scan.started",
@@ -115,6 +134,7 @@ export async function runCommand(args: string[]): Promise<number> {
       dryRun: parsed.dryRun,
       ...(dryRunFindings ? { dryRunFindings } : {}),
       loop: ACTIVE_LOOP,
+      ...(preflight ? { preflight } : {}),
       plan: planResult.plan,
       provider,
       runId: handle.run.runId,
@@ -127,6 +147,7 @@ export async function runCommand(args: string[]): Promise<number> {
       details: {
         emittedScans: scanResults.length,
         loop: ACTIVE_LOOP,
+        mode: parsed.dryRun ? "dry-run" : "live",
       },
       type: "phase.scan.completed",
     });
@@ -154,10 +175,15 @@ export async function runCommand(args: string[]): Promise<number> {
           confirmedFindingsFile: operationalResult.summarizeResult.confirmedFindingsFile,
           loopRoot: planResult.loopRoot,
           planFile: operationalResult.planFile,
+          plan: {
+            file: operationalResult.planFile,
+            mode: operationalResult.plan.mode,
+          },
           provider: {
             available: provider.available,
             detectedProviders: provider.detectedProviders,
             name: provider.name,
+            preflightFile: parsed.dryRun ? null : path.join(handle.paths.runRoot, "provider", "preflight.json"),
             selection: provider.selection,
           },
           replayedScans: operationalResult.replayedScanIds,
@@ -165,6 +191,7 @@ export async function runCommand(args: string[]): Promise<number> {
           runRoot: handle.paths.runRoot,
           scans: operationalResult.scanResults.map((result) => ({
             findingCount: result.output.findings.length,
+            mode: result.output.mode,
             outputFile: result.outputFile,
             promptFile: result.promptFile,
             requestFile: result.requestFile,
@@ -359,8 +386,44 @@ async function readFindingFixture(fixtureFile: string): Promise<ScanFinding[]> {
         return `${location}: ${issue.message}`;
       })
       .join("; ");
+
     throw new Error(`Invalid finding fixture ${fixtureFile}: ${issues}.`);
   }
 
   return result.data;
+}
+
+async function runProviderPreflight(options: {
+  readonly handle: Awaited<ReturnType<typeof createRunStore>>;
+  readonly provider: Awaited<ReturnType<typeof resolveProvider>>;
+}) {
+  try {
+    const preflight = await ensureProviderPreflight({
+      provider: options.provider,
+      runRoot: options.handle.paths.runRoot,
+    });
+
+    await options.handle.appendEvent({
+      details: {
+        preflightFile: path.join(options.handle.paths.runRoot, "provider", "preflight.json"),
+        provider: options.provider.name,
+      },
+      type: "provider.preflight.completed",
+    });
+
+    return preflight;
+  } catch (error: unknown) {
+    if (error instanceof ProviderPreflightError) {
+      await options.handle.appendEvent({
+        details: {
+          message: error.message,
+          preflightFile: error.artifactPath,
+          provider: options.provider.name,
+        },
+        type: "provider.preflight.failed",
+      });
+    }
+
+    throw error;
+  }
 }

@@ -5,6 +5,7 @@ import type { ZodIssue } from "zod";
 
 import { PlanContract, PlanContractSchema } from "../contracts/plan";
 import { ScanOutput, ScanOutputSchema, ScanRequest, ScanRequestSchema } from "../contracts/scan";
+import { assertProviderExecutionGate, assertProviderPreflightGate } from "./provider-execution";
 
 export interface ScanGateOptions {
   readonly expectedLoop: number;
@@ -73,6 +74,34 @@ export async function assertScanGate(options: ScanGateOptions): Promise<ScanGate
         `Scan gate rejected ${outputFile}: expected dry-run output for replayable dry-run scan artifacts.`,
       );
     }
+
+    if (!request.dryRun && output.mode !== "live") {
+      throw new ScanGateError(
+        outputFile,
+        `Scan gate rejected ${outputFile}: expected live output for live provider scan artifacts.`,
+      );
+    }
+  }
+
+  if (!request.dryRun && requireOutput) {
+    const runRoot = path.resolve(loopRoot, "..", "..");
+
+    await assertProviderPreflightGate({
+      expectedProvider: {
+        name: request.provider.name,
+        selection: request.provider.selection,
+      },
+      runRoot,
+    });
+    await assertProviderExecutionGate({
+      expectedPhase: "scan",
+      expectedProvider: {
+        model: request.provider.model,
+        name: request.provider.name,
+        selection: request.provider.selection,
+      },
+      providerRoot: path.join(options.scanRoot, "provider"),
+    });
   }
 
   return {

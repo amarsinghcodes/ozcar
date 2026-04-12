@@ -71,6 +71,7 @@ export async function resumeCommand(args: string[]): Promise<number> {
           runRoot: handle.paths.runRoot,
           scans: result.scanResults.map((scanResult) => ({
             findingCount: scanResult.output.findings.length,
+            mode: scanResult.output.mode,
             outputFile: scanResult.outputFile,
             promptFile: scanResult.promptFile,
             requestFile: scanResult.requestFile,

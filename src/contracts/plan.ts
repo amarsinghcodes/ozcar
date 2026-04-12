@@ -25,6 +25,7 @@ export const PlanContractSchema = z.object({
   runId: RunIdSchema,
   loop: z.number().int().positive(),
   createdAt: IsoTimestampSchema,
+  mode: z.enum(["dry-run", "live"]).default("dry-run"),
   scope: z.array(z.string().trim().min(1)).min(1),
   objectives: z.array(z.string().trim().min(1)).min(1),
   provider: PlanProviderSchema,

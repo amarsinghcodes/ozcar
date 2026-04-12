@@ -18,4 +18,8 @@ Target root: {{TARGET_ROOT}}
 ## Research Direction
 {{RESEARCH_DIRECTION}}
 
-Produce replayable raw scan output that can later feed triage and validation.
+Return JSON only. Do not include markdown, commentary, or code fences.
+The JSON must contain:
+- `findings`: an array of finding objects with `id`, `title`, `severity`, `rationale`, and `locations`
+- `summary`: a short plain-language summary of the scan result
+Use stable finding ids and keep every finding tied to the listed targets.
