@@ -1,38 +1,35 @@
 # ozcar
 
-`ozcar` is a Pi-first audit extension package.
+`ozcar` is a Pi-first audit extension package published as `@4meta5/pi-ozcar`.
 
 - Pi owns auth, provider selection, model registry, session storage, and `/tree`.
 - `ozcar` owns the audit commands, prompts, skills, JSON contracts, and deterministic exports.
-- Repository: `https://github.com/amarsinghcodes/ozcar`
-- npm package: `@amarsinghcodes/pi-ozcar`
 
 The simplest mental model is: Pi is the engine, and `ozcar` is the audit backpack.
 
 ## Quickstart
 
-Clone the package directly from GitHub:
+Install dependencies in a local checkout:
 
 ```bash
-git clone https://github.com/amarsinghcodes/ozcar /Users/x/ozcar
-cd /Users/x/ozcar
+cd <ozcar-checkout>
 npm install
 ```
 
-Use the cloned package in either of these ways:
+Use the checkout in either of these ways:
 
-1. Start Pi inside `/Users/x/ozcar` and let it auto-discover the local `.pi` surface.
-2. From another repo, load the cloned package directly:
+1. Start Pi inside `<ozcar-checkout>` and let it auto-discover the local `.pi` surface.
+2. From another repo, load the local package directly:
 
 ```bash
-pi -e /Users/x/ozcar
+pi -e <path-to-ozcar>
 ```
 
 Once the package is published to npm, you can install or try it directly through Pi:
 
 ```bash
-pi install npm:@amarsinghcodes/pi-ozcar
-pi -e npm:@amarsinghcodes/pi-ozcar
+pi install npm:@4meta5/pi-ozcar
+pi -e npm:@4meta5/pi-ozcar
 ```
 
 Then run:

@@ -12,7 +12,7 @@
    - `../fuzzing-team-foz/...`
    - `../apprentice-victor/...`
 
-Any research notes that mention `~/oz/...` must be translated to these parent-relative paths from `/Users/x/oz/ozcar`.
+Any research notes that mention `~/oz/...` must be translated to these parent-relative paths from this repo root.
 
 ## Canonical Contract
 

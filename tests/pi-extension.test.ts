@@ -172,7 +172,7 @@ describe("ozcar Pi extension scaffold", () => {
       };
     };
 
-    expect(packageJson.name).toBe("@amarsinghcodes/pi-ozcar");
+    expect(packageJson.name).toBe("@4meta5/pi-ozcar");
     expect(packageJson.keywords).toEqual(
       expect.arrayContaining(["pi", "pi-extension", "pi-package", "pi-coding-agent"]),
     );
