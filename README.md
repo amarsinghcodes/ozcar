@@ -12,7 +12,8 @@ The simplest mental model is: Pi is the engine, and `ozcar` is the audit backpac
 Install dependencies in a local checkout:
 
 ```bash
-cd <ozcar-checkout>
+git clone https://github.com/amarsinghcodes/ozcar.git
+cd ozcar
 npm install
 ```
 
@@ -36,6 +37,47 @@ Then run:
 
 ```text
 /ozcar
+```
+
+## Publish To npm
+
+This repo is already configured to publish as the scoped public package `@4meta5/pi-ozcar`.
+
+For first-time local auth on a machine, use your user-level npm config instead of a repo `.npmrc`:
+
+```bash
+npm login --scope=@4meta5 --registry=https://registry.npmjs.org/
+npm whoami
+npm config get userconfig
+```
+
+If you prefer a token instead of interactive login, write it to your user config:
+
+```bash
+npm config set //registry.npmjs.org/:_authToken=<TOKEN> --location=user
+npm whoami
+```
+
+Do not commit npm credentials into this repo.
+
+Preflight the package before the first publish:
+
+```bash
+npm run publish:check
+npm run publish:dry-run
+```
+
+Publish it:
+
+```bash
+npm run publish:npm
+```
+
+After publish, Pi can load the same package surface through npm:
+
+```bash
+pi install npm:@4meta5/pi-ozcar
+pi -e npm:@4meta5/pi-ozcar
 ```
 
 ## Core Commands

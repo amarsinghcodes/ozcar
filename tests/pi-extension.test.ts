@@ -153,6 +153,7 @@ describe("ozcar Pi extension scaffold", () => {
       name: string;
       keywords?: string[];
       files?: string[];
+      scripts?: Record<string, string>;
       repository?: {
         type?: string;
         url?: string;
@@ -190,6 +191,12 @@ describe("ozcar Pi extension scaffold", () => {
     });
     expect(packageJson.publishConfig).toEqual({
       access: "public",
+    });
+    expect(packageJson.scripts).toMatchObject({
+      "publish:check": "npm run build && npm test && npm pack --dry-run",
+      "publish:dry-run": "npm publish --dry-run --access public",
+      "publish:npm": "npm publish --access public",
+      prepublishOnly: "npm run build && npm test",
     });
     expect(packageJson.pi).toEqual({
       extensions: ["./.pi/extensions/ozcar/index.ts"],
