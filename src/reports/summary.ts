@@ -1,14 +1,6 @@
-import { Severity } from "../contracts/finding";
-import { FindingDecisionBundle } from "../contracts/validation";
+import { type ReportBundleLike, formatFindingLocations, formatFindingReference, formatInlineText, sortValidatedBundles } from "./shared";
 
-const SEVERITY_ORDER: Record<Severity, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
-
-export function buildSummaryReport(bundles: readonly FindingDecisionBundle[]): string {
+export function buildSummaryReport(bundles: readonly ReportBundleLike[]): string {
   const validated = sortValidatedBundles(bundles);
   const counts = countBySeverity(validated);
   const lines = [
@@ -35,24 +27,16 @@ export function buildSummaryReport(bundles: readonly FindingDecisionBundle[]): s
   }
 
   for (const bundle of validated) {
-    const location =
-      bundle.finding.locations.length > 0
-        ? bundle.finding.locations.map(formatInlineText).join(", ")
-        : "None recorded";
     lines.push(
-      `- [${bundle.finding.severity}] ${formatInlineText(bundle.finding.title)} (\`${bundle.finding.scanId}/${bundle.finding.findingId}\`) at \`${location}\``,
+      `- [${bundle.finding.severity}] ${formatInlineText(bundle.finding.title)} (\`${formatFindingReference(bundle.finding)}\`) at \`${formatFindingLocations(bundle.finding)}\``,
     );
   }
 
   return `${lines.join("\n")}\n`;
 }
 
-function formatInlineText(value: string): string {
-  return value.replace(/\r\n?/gu, "\n").replace(/\s*\n\s*/gu, " ").trim();
-}
-
-function countBySeverity(bundles: readonly FindingDecisionBundle[]): Record<Severity, number> {
-  return bundles.reduce<Record<Severity, number>>(
+function countBySeverity(bundles: readonly ReportBundleLike[]) {
+  return bundles.reduce<Record<"critical" | "high" | "low" | "medium", number>>(
     (counts, bundle) => {
       counts[bundle.finding.severity] += 1;
       return counts;
@@ -64,22 +48,4 @@ function countBySeverity(bundles: readonly FindingDecisionBundle[]): Record<Seve
       medium: 0,
     },
   );
-}
-
-function sortValidatedBundles(bundles: readonly FindingDecisionBundle[]): FindingDecisionBundle[] {
-  return [...bundles]
-    .filter((bundle) => bundle.validation.outcome === "validated")
-    .sort((left, right) => {
-      const severityRank = SEVERITY_ORDER[left.finding.severity] - SEVERITY_ORDER[right.finding.severity];
-      if (severityRank !== 0) {
-        return severityRank;
-      }
-
-      const titleOrder = left.finding.title.localeCompare(right.finding.title);
-      if (titleOrder !== 0) {
-        return titleOrder;
-      }
-
-      return left.finding.findingId.localeCompare(right.finding.findingId);
-    });
 }

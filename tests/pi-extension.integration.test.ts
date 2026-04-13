@@ -35,8 +35,12 @@ interface RpcExtensionUiRequest {
   message?: string;
   method?: string;
   notifyType?: string;
+  statusKey?: string;
+  statusText?: string;
   text?: string;
   type: "extension_ui_request";
+  widgetKey?: string;
+  widgetLines?: string[];
 }
 
 class RpcPiProcess {
@@ -52,9 +56,10 @@ class RpcPiProcess {
   private stderrBuffer = "";
   private readonly uiRequests: RpcExtensionUiRequest[] = [];
 
-  constructor(binary: string, args: string[], cwd: string) {
+  constructor(binary: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = process.env) {
     this.child = spawn(binary, args, {
       cwd,
+      env,
       stdio: ["pipe", "pipe", "pipe"],
     });
 
@@ -104,21 +109,15 @@ class RpcPiProcess {
     return this.uiRequests.length;
   }
 
-  async waitForNotify(pattern: RegExp | string, fromIndex: number = 0, timeoutMs: number = 10_000): Promise<RpcExtensionUiRequest> {
+  async waitForUiRequest(
+    predicate: (request: RpcExtensionUiRequest) => boolean,
+    fromIndex: number = 0,
+    timeoutMs: number = 10_000,
+  ): Promise<RpcExtensionUiRequest> {
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() < deadline) {
-      const match = this.uiRequests.slice(fromIndex).find((request) => {
-        if (request.method !== "notify" || !request.message) {
-          return false;
-        }
-
-        if (typeof pattern === "string") {
-          return request.message.includes(pattern);
-        }
-
-        return pattern.test(request.message);
-      });
+      const match = this.uiRequests.slice(fromIndex).find(predicate);
 
       if (match) {
         return match;
@@ -127,7 +126,24 @@ class RpcPiProcess {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
-    throw new Error(`Timed out waiting for notify message matching ${String(pattern)}. stderr: ${this.stderrBuffer}`);
+    const recentRequests = this.uiRequests.slice(Math.max(0, this.uiRequests.length - 10));
+    throw new Error(
+      `Timed out waiting for extension UI request. Recent requests: ${JSON.stringify(recentRequests)}. stderr: ${this.stderrBuffer}`,
+    );
+  }
+
+  async waitForNotify(pattern: RegExp | string, fromIndex: number = 0, timeoutMs: number = 10_000): Promise<RpcExtensionUiRequest> {
+    return await this.waitForUiRequest((request) => {
+      if (request.method !== "notify" || !request.message) {
+        return false;
+      }
+
+      if (typeof pattern === "string") {
+        return request.message.includes(pattern);
+      }
+
+      return pattern.test(request.message);
+    }, fromIndex, timeoutMs);
   }
 
   private flushStdout(): void {
@@ -172,6 +188,12 @@ function assertOzcarCommands(commands: RpcSlashCommand[]): void {
       source: "extension",
     }),
   );
+  expect(commandByName.get("ozcar-audit-model")).toEqual(
+    expect.objectContaining({
+      name: "ozcar-audit-model",
+      source: "extension",
+    }),
+  );
   expect(commandByName.get("ozcar-audit-resume")).toEqual(
     expect.objectContaining({
       name: "ozcar-audit-resume",
@@ -187,6 +209,12 @@ function assertOzcarCommands(commands: RpcSlashCommand[]): void {
   expect(commandByName.get("ozcar-audit-branch")).toEqual(
     expect.objectContaining({
       name: "ozcar-audit-branch",
+      source: "extension",
+    }),
+  );
+  expect(commandByName.get("ozcar-audit-export")).toEqual(
+    expect.objectContaining({
+      name: "ozcar-audit-export",
       source: "extension",
     }),
   );
@@ -439,6 +467,55 @@ describeIfPi("ozcar Pi integration", () => {
       type: "get_commands",
     });
     assertOzcarCommands(reloadedCommands.data?.commands ?? []);
+  }, 20_000);
+
+  it("stages a configured audit model preset through Pi RPC editor requests", async () => {
+    process = new RpcPiProcess(
+      piBinary!,
+      [
+        "--mode",
+        "rpc",
+        "--offline",
+        "--no-session",
+        "--no-extensions",
+        "--no-skills",
+        "--no-prompt-templates",
+        "-e",
+        "./.pi/extensions/ozcar/index.ts",
+      ],
+      repoRoot,
+      {
+        ...globalThis.process.env,
+        OZCAR_AUDIT_MODEL_BALANCED: "openrouter/unsloth/qwen3.5-35b-a3b",
+      },
+    );
+
+    const initialCommands = await process.send({
+      id: "phase5-commands-before",
+      type: "get_commands",
+    });
+    assertOzcarCommands(initialCommands.data?.commands ?? []);
+
+    const uiOffset = process.getUiRequestCount();
+    const promptResponse = await process.send({
+      id: "phase5-audit-model-balanced",
+      type: "prompt",
+      message: "/ozcar-audit-model balanced",
+    });
+    expect(promptResponse).toMatchObject({
+      command: "prompt",
+      success: true,
+    });
+
+    const editorRequest = await process.waitForUiRequest(
+      (request) =>
+        request.method === "set_editor_text" && request.text === "/model openrouter/unsloth/qwen3.5-35b-a3b",
+      uiOffset,
+    );
+    expect(editorRequest.text).toBe("/model openrouter/unsloth/qwen3.5-35b-a3b");
+
+    const notifyRequest = await process.waitForNotify("Queued Pi /model command for ozcar preset", uiOffset);
+    expect(notifyRequest.message).toContain("/model openrouter/unsloth/qwen3.5-35b-a3b");
   }, 20_000);
 
   itIfLivePi("restores Phase 3 audit state across reload, summarized tree navigation, and newer root state", async () => {

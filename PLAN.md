@@ -171,7 +171,7 @@ Acceptance criteria:
 
 ### Phase 3: Audit Workflow And Tree Navigation
 
-Status: current
+Status: complete
 
 Objective:
 Move scope capture, audit execution guidance, finding capture, and branch management into Pi commands/tools that explicitly exploit the session tree.
@@ -189,7 +189,7 @@ Acceptance criteria:
 
 ### Phase 4: JSON Artifact Export And Mechanical Reports
 
-Status: planned
+Status: complete
 
 Objective:
 Materialize durable audit artifacts from Pi session state into repo-owned JSON contracts and mechanically rebuilt reports.
@@ -207,7 +207,7 @@ Acceptance criteria:
 
 ### Phase 5: Thin Provider Overrides And Model Presets
 
-Status: planned
+Status: complete
 
 Objective:
 Add only the minimum provider or model customization required for audit ergonomics while keeping Pi responsible for auth and streaming.
@@ -224,7 +224,7 @@ Acceptance criteria:
 
 ### Phase 6: Benchmark Export And Comparative Verification
 
-Status: planned
+Status: current
 
 Objective:
 Expose a stable export surface so live Pi-hosted `ozcar` audits can be compared against other auditors without scraping session files.
@@ -240,7 +240,7 @@ Acceptance criteria:
 - adapter drift is treated as downstream integration work rather than a reason to reshape the internal contracts
 
 Current state:
-The project-local Pi extension scaffold from Phase 2 is in place, validated, and reviewed, including isolated extension discovery and reload coherence proof. The standalone TypeScript CLI and dry-run artifact code remain as transition-era prototype surfaces. The next approved implementation work is Phase 3: move audit workflow, session-tree-aware state restoration, and tree-navigation conventions into Pi commands and tools without pulling Phase 4 through Phase 6 forward.
+The Phase 4 JSON artifact export and mechanical report seam remains in place, validated, repaired, and reviewed, including deterministic on-disk contract enforcement, canonical export timestamps, and Pi-backed snapshot checkpointing for `/ozcar-audit-export`. The Phase 5 model-preset seam is now implemented, repaired, and reviewed, including repo-local `/ozcar-audit-model` presets that stay Pi-owned, live Pi RPC proof for editor-staged `/model` commands, and slash-containing model-id support aligned with Pi's canonical `provider/modelId` behavior. The standalone TypeScript CLI and dry-run artifact code remain as transition-era prototype surfaces. The next approved implementation work is Phase 6: expose the stable export surface and comparative-verification notes without scraping Pi transcripts, reshaping the internal JSON contracts, or reopening provider/runtime ownership.
 
 ## Global Validation Rules
 

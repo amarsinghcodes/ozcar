@@ -1,14 +1,6 @@
-import { Severity } from "../contracts/finding";
-import { FindingDecisionBundle } from "../contracts/validation";
+import { type ReportBundleLike, formatFindingLocations, formatInlineText, normalizeNewlines, sortValidatedBundles } from "./shared";
 
-const SEVERITY_ORDER: Record<Severity, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
-
-export function buildConfirmedFindingsReport(bundles: readonly FindingDecisionBundle[]): string {
+export function buildConfirmedFindingsReport(bundles: readonly ReportBundleLike[]): string {
   const validated = sortValidatedBundles(bundles);
   const lines = [
     "# Confirmed Findings",
@@ -23,18 +15,27 @@ export function buildConfirmedFindingsReport(bundles: readonly FindingDecisionBu
   }
 
   for (const bundle of validated) {
-    const locations =
-      bundle.finding.locations.length > 0
-        ? bundle.finding.locations.map(formatInlineText).join(", ")
-        : "None recorded";
-
     lines.push(`## [${bundle.finding.severity}] ${formatInlineText(bundle.finding.title)}`);
     lines.push("");
+    if (bundle.finding.auditId) {
+      lines.push(`- Audit ID: \`${bundle.finding.auditId}\``);
+    }
     lines.push(`- Finding ID: \`${bundle.finding.findingId}\``);
-    lines.push(`- Scan ID: \`${bundle.finding.scanId}\``);
-    lines.push(`- Locations: \`${locations}\``);
+    if (bundle.finding.scanId) {
+      lines.push(`- Scan ID: \`${bundle.finding.scanId}\``);
+    }
+    lines.push(`- Locations: \`${formatFindingLocations(bundle.finding)}\``);
     lines.push("");
     appendQuotedTextSection(lines, "Summary", bundle.finding.summary);
+    if (bundle.finding.rootCause) {
+      appendQuotedTextSection(lines, "Root Cause", bundle.finding.rootCause);
+    }
+    if (bundle.finding.whatGoesWrong) {
+      appendQuotedTextSection(lines, "What Goes Wrong", bundle.finding.whatGoesWrong);
+    }
+    if (bundle.finding.impact) {
+      appendQuotedTextSection(lines, "Impact", bundle.finding.impact);
+    }
     appendQuotedTextSection(lines, "Triage Rationale", bundle.triage.rationale);
     appendQuotedTextSection(lines, "Validation Rationale", bundle.validation.rationale);
   }
@@ -50,30 +51,4 @@ function appendQuotedTextSection(lines: string[], label: string, value: string):
   }
 
   lines.push("");
-}
-
-function formatInlineText(value: string): string {
-  return normalizeNewlines(value).replace(/\s*\n\s*/gu, " ").trim();
-}
-
-function normalizeNewlines(value: string): string {
-  return value.replace(/\r\n?/gu, "\n");
-}
-
-function sortValidatedBundles(bundles: readonly FindingDecisionBundle[]): FindingDecisionBundle[] {
-  return [...bundles]
-    .filter((bundle) => bundle.validation.outcome === "validated")
-    .sort((left, right) => {
-      const severityRank = SEVERITY_ORDER[left.finding.severity] - SEVERITY_ORDER[right.finding.severity];
-      if (severityRank !== 0) {
-        return severityRank;
-      }
-
-      const titleOrder = left.finding.title.localeCompare(right.finding.title);
-      if (titleOrder !== 0) {
-        return titleOrder;
-      }
-
-      return left.finding.findingId.localeCompare(right.finding.findingId);
-    });
 }

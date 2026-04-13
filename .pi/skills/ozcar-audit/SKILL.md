@@ -20,11 +20,13 @@ Use this skill when you are working inside `/Users/x/oz/ozcar` with Pi and need 
 ## Pi-First Entry
 
 1. Run `/ozcar` to confirm the repo-local extension surface is loaded.
-2. Run `/ozcar-audit-start <focus>` to create the current branch's session-backed ozcar audit state.
-3. Run `/ozcar-audit <focus>` to start the prompt-led audit entrypoint.
-4. Use `/ozcar-audit-state` or `/ozcar-audit-resume` after `/resume`, `/tree`, or `/reload` to verify restored state.
-5. Use `/ozcar-audit-branch <hypothesis|confirmed> <slug> [:: note]` or the `ozcar_audit_branch` tool to mark important audit branches before navigating with `/tree`.
-6. Use `/tree` with summarization enabled to park a branch; ozcar restores the abandoned summary state from Pi's branch summary and session entries.
+2. Run `/ozcar-audit-model` to inspect the repo-local audit presets, or `/ozcar-audit-model balanced|deep|economy` to queue a Pi `/model` command from `OZCAR_AUDIT_MODEL_*`.
+3. Run `/ozcar-audit-start <focus>` to create the current branch's session-backed ozcar audit state.
+4. Run `/ozcar-audit <focus>` to start the prompt-led audit entrypoint.
+5. Use `/ozcar-audit-state` or `/ozcar-audit-resume` after `/resume`, `/tree`, or `/reload` to verify restored state.
+6. Use `/ozcar-audit-branch <hypothesis|confirmed> <slug> [:: note]` or the `ozcar_audit_branch` tool to mark important audit branches before navigating with `/tree`.
+7. Use the `ozcar_store_audit_snapshot` tool when validated findings are ready to checkpoint the Phase 4 snapshot on the current Pi branch, then run `/ozcar-audit-export` to materialize repo-owned JSON contracts, rebuilt reports, and `exports/findings.json`.
+8. Use `/tree` with summarization enabled to park a branch; ozcar restores the abandoned summary state from Pi's branch summary and session entries.
 
 ## Repo-Local Surface
 
@@ -34,4 +36,4 @@ Use this skill when you are working inside `/Users/x/oz/ozcar` with Pi and need 
 
 ## Current Scope
 
-This skill now covers the first coherent Phase 3 slice. It proves Pi-native audit entry, session-backed ozcar audit-state restoration on `session_start` and `session_tree`, and tree-aware label conventions for hypotheses, confirmed findings, and abandoned branches. It does not yet implement the later JSON export, provider-override, or benchmark phases from `PLAN.md`.
+This skill now covers the approved Pi-native audit workflow, the Phase 4 artifact seam, and the Phase 5 audit model-preset helper. It proves session-backed ozcar audit-state restoration on `session_start` and `session_tree`, tree-aware label conventions for hypotheses, confirmed findings, and abandoned branches, plus the repo-owned export path that checkpoints validated audit snapshots into Pi state and materializes deterministic JSON artifacts and rebuilt reports from that stored branch state. Pi still owns `/login`, provider resolution, the model registry, and streaming, while provider overrides and benchmark-comparison orchestration remain later phases from `PLAN.md`.

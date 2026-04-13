@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   OZCAR_AUDIT_BRANCH_COMMAND,
+  OZCAR_AUDIT_EXPORT_COMMAND,
+  OZCAR_AUDIT_MODEL_COMMAND,
   OZCAR_AUDIT_BRANCH_TOOL,
+  OZCAR_STORE_AUDIT_SNAPSHOT_TOOL,
   OZCAR_AUDIT_RESUME_COMMAND,
   OZCAR_AUDIT_START_COMMAND,
   OZCAR_AUDIT_STATE_COMMAND,
@@ -82,11 +85,15 @@ describe("ozcar Pi extension scaffold", () => {
     registerOzcarExtension(pi, paths);
 
     expect(commandRegistry.get(OZCAR_COMMAND)?.description).toContain("repo-local ozcar Pi");
+    expect(commandRegistry.get(OZCAR_AUDIT_EXPORT_COMMAND)?.description).toContain("findings.json comparison surface");
     expect(commandRegistry.has(OZCAR_AUDIT_START_COMMAND)).toBe(true);
     expect(commandRegistry.has(OZCAR_AUDIT_RESUME_COMMAND)).toBe(true);
     expect(commandRegistry.has(OZCAR_AUDIT_STATE_COMMAND)).toBe(true);
     expect(commandRegistry.has(OZCAR_AUDIT_BRANCH_COMMAND)).toBe(true);
+    expect(commandRegistry.has(OZCAR_AUDIT_MODEL_COMMAND)).toBe(true);
+    expect(commandRegistry.has(OZCAR_AUDIT_EXPORT_COMMAND)).toBe(true);
     expect(toolRegistry.get(OZCAR_AUDIT_BRANCH_TOOL)?.description).toContain("Pi session state");
+    expect(toolRegistry.get(OZCAR_STORE_AUDIT_SNAPSHOT_TOOL)?.description).toContain("Phase 4 audit snapshot");
 
     const resourcesDiscoverHandlers = eventRegistry.get("resources_discover") ?? [];
     expect(resourcesDiscoverHandlers).toHaveLength(1);
@@ -120,11 +127,16 @@ describe("ozcar Pi extension scaffold", () => {
 
     expect(notify).toHaveBeenCalledWith(expect.stringContaining(`/${OZCAR_PROMPT_TEMPLATE}`), "info");
     expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_START_COMMAND}`);
+    expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_MODEL_COMMAND}`);
     expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_STATE_COMMAND}`);
     expect(notify.mock.calls[0]?.[0]).toContain(`<hypothesis|confirmed>`);
     expect(notify.mock.calls[0]?.[0]).not.toContain(`<hypothesis|confirmed|abandoned>`);
+    expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_EXPORT_COMMAND}`);
+    expect(notify.mock.calls[0]?.[0]).toContain("exports/findings.json");
+    expect(notify.mock.calls[0]?.[0]).not.toContain("<snapshot.json>");
     expect(notify.mock.calls[0]?.[0]).toContain(`/skill:${OZCAR_SKILL}`);
     expect(notify.mock.calls[0]?.[0]).toContain(OZCAR_AUDIT_BRANCH_TOOL);
+    expect(notify.mock.calls[0]?.[0]).toContain(OZCAR_STORE_AUDIT_SNAPSHOT_TOOL);
     expect(notify.mock.calls[0]?.[0]).toContain("/reload");
   });
 
