@@ -1,6 +1,6 @@
 # ozcar
 
-`ozcar` is a Pi-first audit extension package published as `@4meta5/pi-ozcar`.
+`ozcar` is a [Pi](https://github.com/badlogic/pi-mono)-first audit extension package published as `@4meta5/pi-ozcar`.
 
 - Pi owns auth, provider selection, model registry, session storage, and `/tree`.
 - `ozcar` owns the audit commands, prompts, skills, JSON contracts, and deterministic exports.
