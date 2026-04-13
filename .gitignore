@@ -1,9 +1,9 @@
 # Repo-local runtime state
 .ai-auditor/
+PLAN.md
 
 # Local workflow artifacts
-docs/*
-!docs/.gitkeep
+docs/
 
 # Dependencies and build output
 node_modules/
