@@ -29,6 +29,8 @@ Thumbs.db
 .cursor/
 .continue/
 .windsurf/
+.agents/
+.pi/
 CLAUDE.local.md
 .claude/settings.local.json
 .aider*
