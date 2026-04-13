@@ -224,7 +224,7 @@ Acceptance criteria:
 
 ### Phase 6: Benchmark Export And Comparative Verification
 
-Status: current
+Status: complete
 
 Objective:
 Expose a stable export surface so live Pi-hosted `ozcar` audits can be compared against other auditors without scraping session files.
@@ -235,12 +235,12 @@ Deliverables:
 - comparison validation that keeps provider, model, and time-budget assumptions explicit
 
 Acceptance criteria:
-- downstream harnesses consume the export surface instead of Pi session transcripts
-- benchmark comparisons operate on exported validated findings, not raw session text
-- adapter drift is treated as downstream integration work rather than a reason to reshape the internal contracts
+- repo-local guidance and fixtures point downstream harnesses at the export surface instead of Pi session transcripts
+- benchmark comparisons in this repo are defined against exported validated findings, not raw session text
+- adapter drift remains downstream integration work rather than a reason to reshape the internal contracts
 
 Current state:
-The Phase 4 JSON artifact export and mechanical report seam remains in place, validated, repaired, and reviewed, including deterministic on-disk contract enforcement, canonical export timestamps, and Pi-backed snapshot checkpointing for `/ozcar-audit-export`. The Phase 5 model-preset seam is now implemented, repaired, and reviewed, including repo-local `/ozcar-audit-model` presets that stay Pi-owned, live Pi RPC proof for editor-staged `/model` commands, and slash-containing model-id support aligned with Pi's canonical `provider/modelId` behavior. The standalone TypeScript CLI and dry-run artifact code remain as transition-era prototype surfaces. The next approved implementation work is Phase 6: expose the stable export surface and comparative-verification notes without scraping Pi transcripts, reshaping the internal JSON contracts, or reopening provider/runtime ownership.
+The Phase 4 JSON artifact export and mechanical report seam remains in place, validated, repaired, and reviewed, including deterministic on-disk contract enforcement, canonical export timestamps, and Pi-backed snapshot checkpointing for `/ozcar-audit-export`. The Phase 5 model-preset seam is now implemented, repaired, and reviewed, including repo-local `/ozcar-audit-model` presets that stay Pi-owned, live Pi RPC proof for editor-staged `/model` commands, and slash-containing model-id support aligned with Pi's canonical `provider/modelId` behavior. Phase 6 is now implemented, repaired, and reviewed inside this repo, including the stable validated-only `exports/findings.json` surface, downstream-facing guidance and golden fixtures, validated-only export timestamp derivation, zero-validated export fallback coverage, and explicit same-phase handling for metadata-only artifact cross-link drift. The standalone TypeScript CLI and dry-run artifact code remain as transition-era prototype surfaces. Downstream adapter migration in sibling repos remains external follow-up and is not an active in-repo implementation slice unless the user expands scope.
 
 ## Global Validation Rules
 
@@ -250,6 +250,7 @@ The Phase 4 JSON artifact export and mechanical report seam remains in place, va
 - New audit commands or tools must validate against both non-interactive fallbacks and interactive Pi UI behavior where applicable.
 - JSON/report slices must add deterministic rebuild tests from stored contracts.
 - Provider-related work must prove it delegates to Pi or `@mariozechner/pi-ai`; copied OAuth or streaming code is a plan violation.
+- Metadata-only review/fix/plan cross-link drift should be repaired opportunistically inside the active same-phase loop and must not block phase progress by itself unless it points the next worker at the wrong target artifact or makes the active slice ambiguous.
 - Every persisted implementation run writes `docs/execs/{UTC_TIMESTAMP}_EXEC.md` using the local template.
 - Every persisted review run writes `docs/reviews/{UTC_TIMESTAMP}_REVIEW.md` using the local template.
 - Later phases do not start until earlier phase acceptance criteria pass.
