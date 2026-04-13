@@ -378,7 +378,7 @@ export function renderAuditStateSummary(state: RestoredAuditState, includeConven
 export function renderMissingAuditStateMessage(): string {
   return [
     "No ozcar audit state is active on this branch.",
-    "Run /ozcar-audit-start <focus> to initialize the Phase 3 audit workflow.",
+    "Run /ozcar-audit-start <focus> to initialize the audit workflow.",
   ].join("\n");
 }
 

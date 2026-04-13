@@ -1,84 +1,183 @@
 # ozcar
 
-`ozcar` is a Pi-first audit extension package. Pi owns auth, provider selection, model registry, session storage, and `/tree`; this repo owns the audit-specific prompts, skills, JSON-first artifacts, and extension entrypoints that sit on top of Pi.
+`ozcar` is a Pi-first audit extension package.
 
-The primary way to load `ozcar` is as a Pi package from any repo or cwd with `pi -e /Users/x/oz/ozcar`. Starting Pi inside this checkout still auto-discovers `.pi/extensions/ozcar/index.ts`. The standalone `ozcar` CLI remains compatibility-only for transition-era dry-run testing.
+- Pi owns auth, provider selection, model registry, session storage, and `/tree`.
+- `ozcar` owns the audit commands, prompts, skills, JSON contracts, and deterministic exports.
+- Repository: `https://github.com/amarsinghcodes/ozcar`
+- npm package: `@amarsinghcodes/pi-ozcar`
 
-## Pi Package Quickstart
+The simplest mental model is: Pi is the engine, and `ozcar` is the audit backpack.
 
-1. From another repo or cwd, load the package with `pi -e /Users/x/oz/ozcar`.
-2. If you are already in `/Users/x/oz/ozcar`, starting Pi there still auto-discovers `.pi/extensions/ozcar/index.ts`.
-3. Run `/ozcar` to confirm the repo-local scaffold is loaded.
-4. Run `/ozcar-audit-model` to inspect the repo-local audit presets, or `/ozcar-audit-model balanced` to queue a Pi `/model` command from the current shell configuration.
-5. Run `/ozcar-audit-start <focus>` to create the current branch's session-backed audit state with a collision-resistant default audit id, or run `/ozcar-audit-start <audit-id> :: <focus>` to pin a custom durable audit root.
-6. Run `/ozcar-audit <focus>` to start the repo-local audit prompt.
-7. Run `/ozcar-audit-state` or `/ozcar-audit-resume` after `/resume`, `/tree`, or `/reload` to confirm restored state.
-8. Run `/ozcar-audit-branch <hypothesis|confirmed> <slug> [:: note]` to label important audit branches before navigating with `/tree`.
-9. Save a validated Phase 4 snapshot JSON file and run `/ozcar-audit-checkpoint path/to/snapshot.json` to checkpoint it on the current Pi branch.
-10. Run `/ozcar-audit-export` to materialize the stored Pi-backed snapshot into `.ai-auditor/audits/<audit-id>/`, including the stable `exports/findings.json` comparison surface.
-11. Use `/tree` with summarization enabled to park a branch; ozcar persists the abandoned summary state on the summarized branch automatically.
-12. Run `/skill:ozcar-audit <focus>` when you want the fuller repo-local instructions loaded explicitly.
-13. Run `/reload` after editing files under `.pi/`.
+## Quickstart
 
-For agent turns, the extension still mirrors the checkpoint backend through `ozcar_store_audit_snapshot`, but the human workflow is `/ozcar-audit-checkpoint <snapshot.json>` then `/ozcar-audit-export`.
+Clone the package directly from GitHub:
 
-## Pi Package Surface
+```bash
+git clone https://github.com/amarsinghcodes/ozcar /Users/x/ozcar
+cd /Users/x/ozcar
+npm install
+```
 
-- `package.json` `pi` manifest: package-level Pi entrypoint for `pi -e /path/to/ozcar`
-- `.pi/extensions/ozcar/index.ts`: project-local extension entrypoint
-- `.pi/prompts/ozcar-audit.md`: prompt-led audit kickoff
-- `.pi/skills/ozcar-audit/SKILL.md`: repo-local audit skill
+Use the cloned package in either of these ways:
 
-The current extension commands are:
+1. Start Pi inside `/Users/x/ozcar` and let it auto-discover the local `.pi` surface.
+2. From another repo, load the cloned package directly:
 
-- `/ozcar-audit-model`: list or queue the repo-local `balanced`, `deep`, and `economy` Pi `/model` presets from `OZCAR_AUDIT_MODEL_*`
-- `/ozcar-audit-start`: create or restart the branch-local audit state, with explicit `<audit-id> :: <focus>` support when you want to pin the audit root manually
-- `/ozcar-audit-resume`: re-surface the restored state on the current branch
-- `/ozcar-audit-state`: inspect the current audit state plus branch-label conventions
-- `/ozcar-audit-branch`: checkpoint the current branch as a hypothesis or confirmed finding before a summarized `/tree`
-- `/ozcar-audit-checkpoint`: validate and store a Phase 4 snapshot JSON file on the current branch before export
-- `/ozcar-audit-export`: materialize deterministic audit artifacts plus the stable validated-only `exports/findings.json` comparison surface from the latest snapshot stored on the current Pi branch
+```bash
+pi -e /Users/x/ozcar
+```
 
-Branch conventions use Pi's native tree features instead of a parallel store:
+Once the package is published to npm, you can install or try it directly through Pi:
 
-- hypotheses => `audit:hypothesis:<slug>`
-- confirmed findings => `audit:confirmed:<finding-id>`
-- abandoned summarized branches => `audit:abandoned:<slug>`
+```bash
+pi install npm:@amarsinghcodes/pi-ozcar
+pi -e npm:@amarsinghcodes/pi-ozcar
+```
 
-If the agent needs to checkpoint a branch during a turn, the extension also registers the `ozcar_audit_branch` tool with the same active-branch semantics.
-When validated findings are ready for durable export, humans should use `/ozcar-audit-checkpoint <snapshot.json>` and agent turns can still use `ozcar_store_audit_snapshot`; both paths store the same validated Phase 4 snapshot contract before `/ozcar-audit-export`.
+Then run:
 
-Phase 4 durable artifacts live under `.ai-auditor/audits/<audit-id>/`:
+```text
+/ozcar
+```
 
-- `audit.json`
-- `scope.json`
-- `findings/<finding-id>/{finding,triage,validation}.json`
-- `summary.md`
-- `confirmed-findings.md`
-- `exports/findings.json`
+## Core Commands
 
-## Phase 6 Comparison Contract
+- `/ozcar`
+- `/ozcar-audit-model [balanced|deep|economy]`
+- `/ozcar-audit-start <focus>`
+- `/ozcar-audit-start <audit-id> :: <focus>`
+- `/ozcar-audit <focus>`
+- `/ozcar-audit-state`
+- `/ozcar-audit-resume`
+- `/ozcar-audit-branch <hypothesis|confirmed> <slug> [:: note]`
+- `/ozcar-audit-checkpoint <snapshot.json>`
+- `/ozcar-audit-export`
 
-Downstream comparison work should consume `.ai-auditor/audits/<audit-id>/exports/findings.json`.
+## Typical Workflow
 
-- The export is rebuilt from validated findings only; Pi transcripts, branch summaries, and session files are not part of the comparison contract.
-- The checked-in fixture at `tests/fixtures/phase6/findings-export.expected.json` pins the byte-stable surface downstream adapters should read.
-- The export now supports an optional top-level `reportedMetrics` block with authoritative `durationSeconds`, `costUsd`, `inputTokens`, and `outputTokens` values sourced only from ozcar contract data.
-- When no authoritative reported metrics are stored, `reportedMetrics` is omitted entirely; when only some are available, ozcar emits only those present fields and leaves measured wall-clock external.
-- Provider and model are comparison assumptions captured externally from Pi's active `/model` selection or the benchmark harness configuration; they are not authoritative `findings.json` fields.
-- Time budget remains a comparison assumption captured externally by the benchmark harness, and measured wall-clock remains external to ozcar's authoritative reported-metrics surface.
-- Downstream adapter updates that read `reportedMetrics` remain external follow-up outside this repo.
+```text
+/ozcar
+/ozcar-audit-start Investigate withdrawal authorization invariants
+/ozcar-audit Investigate withdrawal authorization invariants
+/ozcar-audit-branch hypothesis replay-path :: suspicious shared nonce path
+/tree
+/ozcar-audit-resume
+/ozcar-audit-checkpoint artifacts/withdraw-audit.snapshot.json
+/ozcar-audit-export
+```
 
-## Transition-Era CLI
+That flow does three things:
 
-The compiled CLI and dry-run runtime under `src/` remain available for transition-era testing only. It is compatibility-only; the Pi package surface is the primary entrypoint now.
+- keeps the live audit inside Pi
+- uses `/tree` for branching and recovery
+- writes stable repo-owned artifacts only when you checkpoint and export
 
-Repo validation stays the same:
+Humans and agents share the same backend:
 
-- `npm run build`
-- `npm test`
+- human branch checkpoint: `/ozcar-audit-branch ...`
+- agent branch checkpoint: `ozcar_audit_branch`
+- human snapshot checkpoint: `/ozcar-audit-checkpoint <snapshot.json>`
+- agent snapshot checkpoint: `ozcar_store_audit_snapshot`
+- shared export step: `/ozcar-audit-export`
 
-Optional live Pi proofs for the Pi extension surface:
+## What Gets Written
 
-- `npm test -- tests/pi-extension.integration.test.ts`
-- `OZCAR_RUN_INTERACTIVE_TREE_PROOF=1 npm test -- tests/pi-extension.interactive.test.ts`
+After export, `ozcar` writes:
+
+```text
+.ai-auditor/
+  audits/<audit-id>/
+    audit.json
+    scope.json
+    findings/
+      <finding-id>/
+        finding.json
+        triage.json
+        validation.json
+    summary.md
+    confirmed-findings.md
+    exports/
+      findings.json
+```
+
+JSON is canonical. Markdown is rebuilt from stored JSON.
+
+## Comparison Contract
+
+Downstream comparison work should read:
+
+```text
+.ai-auditor/audits/<audit-id>/exports/findings.json
+```
+
+Rules:
+
+- only validated findings are exported
+- transcripts, branch summaries, and session files are not part of the contract
+- `reportedMetrics` is optional
+- if some reported metrics are missing, only the present fields are emitted
+- measured wall-clock time stays external
+- provider, model, and time-budget assumptions stay external
+
+Example:
+
+```json
+{
+  "schemaVersion": 1,
+  "audit": {
+    "auditId": "payments-vault",
+    "focus": "Investigate payments vault invariants",
+    "status": "completed"
+  },
+  "scope": {
+    "targets": ["src/Vault.sol", "src/WithdrawRouter.sol"],
+    "objectives": ["Confirm balance invariants"],
+    "notes": []
+  },
+  "generatedAt": "2026-04-12T20:08:00.000Z",
+  "reportedMetrics": {
+    "durationSeconds": 4.2,
+    "costUsd": 0.031,
+    "inputTokens": 321,
+    "outputTokens": 123
+  },
+  "findings": [
+    {
+      "findingId": "reentrant-withdraw",
+      "title": "Reentrant withdraw path",
+      "summary": "The withdraw callback can reenter before the nonce is burned.",
+      "severity": "critical",
+      "affectedCode": ["src/WithdrawRouter.sol:18"],
+      "triageDisposition": "confirmed",
+      "validationOutcome": "validated",
+      "labels": {
+        "auditId": "payments-vault"
+      }
+    }
+  ]
+}
+```
+
+## Why It Is Built This Way
+
+`ozcar` is intentionally thin.
+
+- Pi does the general-purpose agent work.
+- `ozcar` adds the audit-specific workflow and durable artifact contract.
+- The repo avoids a second CLI runtime, a second session store, and transcript-scraping comparison logic.
+
+That keeps the package closer to Sutton's "bitter lesson" direction: rely on stronger general systems, and keep the wrapper small.
+
+## Development
+
+```bash
+npm run build
+npm test
+```
+
+Focused Pi-surface tests:
+
+```bash
+npm test -- tests/pi-extension.test.ts tests/pi-extension.audit.test.ts tests/pi-extension.export.test.ts tests/pi-extension.providers.test.ts
+```

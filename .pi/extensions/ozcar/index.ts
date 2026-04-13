@@ -74,7 +74,7 @@ export function renderOzcarHelp(paths: OzcarPaths): string {
     `Use /skill:${OZCAR_SKILL} [focus] when you want the repo-local audit skill loaded explicitly.`,
     `Use /${OZCAR_AUDIT_RESUME_COMMAND} or /${OZCAR_AUDIT_STATE_COMMAND} after /resume, /tree, or /reload.`,
     `Use /${OZCAR_AUDIT_BRANCH_COMMAND} <hypothesis|confirmed> <slug> [:: note] to label active audit branches.`,
-    `Use /${OZCAR_AUDIT_CHECKPOINT_COMMAND} <snapshot.json> to validate and store a Phase 4 snapshot file on this branch before export.`,
+    `Use /${OZCAR_AUDIT_CHECKPOINT_COMMAND} <snapshot.json> to validate and store an audit snapshot file on this branch before export.`,
     `Use /${OZCAR_AUDIT_EXPORT_COMMAND} to materialize .ai-auditor/audits/<audit-id>/ artifacts and the stable exports/findings.json comparison surface from the latest validated audit snapshot stored on this Pi branch.`,
     `Human export flow: /${OZCAR_AUDIT_CHECKPOINT_COMMAND} <snapshot.json> -> /${OZCAR_AUDIT_EXPORT_COMMAND}.`,
     `LLM tool: ${OZCAR_AUDIT_BRANCH_TOOL} mirrors the same branch checkpointing surface for agent turns.`,

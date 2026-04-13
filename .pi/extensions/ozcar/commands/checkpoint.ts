@@ -17,8 +17,7 @@ export function registerAuditCheckpointCommand(
   runtime: AuditRuntimeState,
 ): void {
   pi.registerCommand(OZCAR_AUDIT_CHECKPOINT_COMMAND, {
-    description:
-      "Validate and store a Phase 4 audit snapshot file on the current Pi branch for later /ozcar-audit-export",
+    description: "Validate and store an audit snapshot file on the current Pi branch for later /ozcar-audit-export",
     handler: async (args, ctx) => {
       const state = getCurrentAuditState(runtime, ctx.sessionManager);
       if (!state) {

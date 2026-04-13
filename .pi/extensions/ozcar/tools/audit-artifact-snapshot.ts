@@ -12,8 +12,7 @@ export function registerAuditArtifactSnapshotTool(
   runtime: AuditRuntimeState,
 ): void {
   pi.registerTool<{ snapshot?: unknown }, { auditId: string; findingCount: number; validatedFindings: number }>({
-    description:
-      "Validate and store the current Phase 4 audit snapshot on the active Pi branch for later /ozcar-audit-export.",
+    description: "Validate and store the current audit snapshot on the active Pi branch for later /ozcar-audit-export.",
     execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => runAuditArtifactSnapshotTool(pi, runtime, ctx, params),
     label: "Ozcar Store Audit Snapshot",
     name: OZCAR_STORE_AUDIT_SNAPSHOT_TOOL,
@@ -21,7 +20,7 @@ export function registerAuditArtifactSnapshotTool(
       additionalProperties: false,
       properties: {
         snapshot: {
-          description: "The validated Phase 4 audit snapshot to store on the current Pi branch.",
+          description: "The validated audit snapshot to store on the current Pi branch.",
           type: "object",
         },
       },
@@ -60,7 +59,7 @@ async function runAuditArtifactSnapshotTool(
       content: [
         {
           type: "text" as const,
-          text: "ozcar_store_audit_snapshot requires { snapshot } matching the Phase 4 audit artifact snapshot contract.",
+          text: "ozcar_store_audit_snapshot requires { snapshot } matching the ozcar audit artifact snapshot contract.",
         },
       ],
       details: {

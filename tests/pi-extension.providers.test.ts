@@ -28,7 +28,7 @@ function createHarness(env: Record<string, string | undefined>) {
   return {
     commandRegistry,
     ctx: {
-      cwd: "/Users/x/oz/ozcar",
+      cwd: "/Users/x/ozcar",
       isIdle: () => true,
       sessionManager: {
         getBranch: () => [],

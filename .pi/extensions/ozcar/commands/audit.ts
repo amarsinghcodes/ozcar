@@ -115,7 +115,7 @@ export function registerAuditCommands(
   _paths: OzcarPaths,
 ): void {
   pi.registerCommand(OZCAR_AUDIT_START_COMMAND, {
-    description: "Start a Phase 3 ozcar audit session on the current Pi branch",
+    description: "Start an ozcar audit session on the current Pi branch",
     handler: async (args, ctx) => {
       const parsed = parseAuditStartArgs(args);
       if (!parsed) {
@@ -170,7 +170,7 @@ export function registerAuditCommands(
   });
 
   pi.registerCommand(OZCAR_AUDIT_STATE_COMMAND, {
-    description: "Inspect the current Phase 3 ozcar audit state and tree conventions",
+    description: "Inspect the current ozcar audit state and tree conventions",
     handler: async (_args, ctx) => {
       const state = getCurrentAuditState(runtime, ctx.sessionManager);
       if (!state) {

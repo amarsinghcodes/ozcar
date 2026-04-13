@@ -1,7 +1,0 @@
-[
-  {
-    "id": "invalid-high",
-    "locations": ["Sample.sol:12"],
-    "rationale": "The title field is deliberately missing to prove schema-first finding fixture parsing."
-  }
-]

@@ -124,7 +124,7 @@ function createHarness(options: {
   };
 
   const ctx = {
-    cwd: "/Users/x/oz/ozcar",
+    cwd: "/Users/x/ozcar",
     isIdle: () => true,
     sessionManager,
     ui,
@@ -286,8 +286,8 @@ describe("ozcar Phase 3 audit workflow", () => {
     expect(parsedA?.auditId.length).toBeLessThanOrEqual(FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH);
     expect(parsedB?.auditId.length).toBeLessThanOrEqual(FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH);
     expect(
-      getAuditArtifactPaths("/Users/x/oz/ozcar", parsedA?.auditId ?? "").auditRoot,
-    ).not.toBe(getAuditArtifactPaths("/Users/x/oz/ozcar", parsedB?.auditId ?? "").auditRoot);
+      getAuditArtifactPaths("/Users/x/ozcar", parsedA?.auditId ?? "").auditRoot,
+    ).not.toBe(getAuditArtifactPaths("/Users/x/ozcar", parsedB?.auditId ?? "").auditRoot);
   });
 
   it("starts an audit, marks a hypothesis branch, and reports restored state through commands", async () => {

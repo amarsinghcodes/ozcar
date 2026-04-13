@@ -1,13 +1,20 @@
 {
-  "name": "ozcar",
+  "name": "@amarsinghcodes/pi-ozcar",
   "version": "0.1.0",
-  "private": true,
-  "description": "Pi-first ozcar audit extension package",
+  "description": "Pi-first audit extension package for structured security reviews and deterministic comparison exports",
   "keywords": [
-    "audit",
-    "pi-extension",
+    "pi",
     "pi-package",
+    "pi-extension",
+    "pi-coding-agent",
+    "audit",
     "security"
+  ],
+  "files": [
+    ".pi/",
+    "src/",
+    "README.md",
+    "LICENSE"
   ],
   "pi": {
     "extensions": [
@@ -20,8 +27,18 @@
       "./.pi/skills"
     ]
   },
-  "bin": {
-    "ozcar": "dist/cli.js"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amarsinghcodes/ozcar.git"
+  },
+  "author": "Amar Singh",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/amarsinghcodes/ozcar/issues"
+  },
+  "homepage": "https://github.com/amarsinghcodes/ozcar#readme",
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.pi.json",

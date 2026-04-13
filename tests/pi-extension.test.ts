@@ -95,7 +95,7 @@ describe("ozcar Pi extension scaffold", () => {
     expect(commandRegistry.has(OZCAR_AUDIT_CHECKPOINT_COMMAND)).toBe(true);
     expect(commandRegistry.has(OZCAR_AUDIT_EXPORT_COMMAND)).toBe(true);
     expect(toolRegistry.get(OZCAR_AUDIT_BRANCH_TOOL)?.description).toContain("Pi session state");
-    expect(toolRegistry.get(OZCAR_STORE_AUDIT_SNAPSHOT_TOOL)?.description).toContain("Phase 4 audit snapshot");
+    expect(toolRegistry.get(OZCAR_STORE_AUDIT_SNAPSHOT_TOOL)?.description).toContain("audit snapshot");
 
     const resourcesDiscoverHandlers = eventRegistry.get("resources_discover") ?? [];
     expect(resourcesDiscoverHandlers).toHaveLength(1);
@@ -150,7 +150,21 @@ describe("ozcar Pi extension scaffold", () => {
   it("advertises a Pi package manifest that points at the repo-local extension resources", () => {
     const paths = createRepoPaths();
     const packageJson = JSON.parse(readFileSync(path.join(paths.repoRoot, "package.json"), "utf8")) as {
+      name: string;
       keywords?: string[];
+      files?: string[];
+      repository?: {
+        type?: string;
+        url?: string;
+      };
+      license?: string;
+      homepage?: string;
+      bugs?: {
+        url?: string;
+      };
+      publishConfig?: {
+        access?: string;
+      };
       pi?: {
         extensions?: string[];
         prompts?: string[];
@@ -158,7 +172,25 @@ describe("ozcar Pi extension scaffold", () => {
       };
     };
 
-    expect(packageJson.keywords).toEqual(expect.arrayContaining(["pi-extension", "pi-package"]));
+    expect(packageJson.name).toBe("@amarsinghcodes/pi-ozcar");
+    expect(packageJson.keywords).toEqual(
+      expect.arrayContaining(["pi", "pi-extension", "pi-package", "pi-coding-agent"]),
+    );
+    expect(packageJson.files).toEqual(
+      expect.arrayContaining([".pi/", "src/", "README.md", "LICENSE"]),
+    );
+    expect(packageJson.repository).toEqual({
+      type: "git",
+      url: "git+https://github.com/amarsinghcodes/ozcar.git",
+    });
+    expect(packageJson.license).toBe("MIT");
+    expect(packageJson.homepage).toBe("https://github.com/amarsinghcodes/ozcar#readme");
+    expect(packageJson.bugs).toEqual({
+      url: "https://github.com/amarsinghcodes/ozcar/issues",
+    });
+    expect(packageJson.publishConfig).toEqual({
+      access: "public",
+    });
     expect(packageJson.pi).toEqual({
       extensions: ["./.pi/extensions/ozcar/index.ts"],
       prompts: ["./.pi/prompts"],
