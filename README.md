@@ -1,6 +1,6 @@
 # ozcar
 
-`ozcar` is a [Pi](https://github.com/badlogic/pi-mono)-first audit extension package published as `@4meta5/pi-ozcar`.
+`ozcar` is a [Pi](https://github.com/badlogic/pi-mono)-first audit extension package available on npm as `@4meta5/pi-ozcar`.
 
 - Pi owns auth, provider selection, model registry, session storage, and `/tree`.
 - `ozcar` owns the audit commands, prompts, skills, JSON contracts, and deterministic exports.
@@ -17,21 +17,26 @@ cd ozcar
 npm install
 ```
 
-Use the checkout in either of these ways:
+Run the checkout in either of these ways:
 
 1. Start Pi inside `<ozcar-checkout>` and let it auto-discover the local `.pi` surface.
-2. From another repo, load the local package directly:
+2. From another repo or working directory, load the local package directly:
 
 ```bash
 pi -e <path-to-ozcar>
 ```
 
-Once the package is published to npm, you can install or try it directly through Pi:
+Use the npm package in whichever mode fits your session:
 
 ```bash
+# install it into Pi's package settings for future sessions
 pi install npm:@4meta5/pi-ozcar
+
+# or load it ad hoc for the current session
 pi -e npm:@4meta5/pi-ozcar
 ```
+
+`pi install` is the persistent path. `pi -e npm:@4meta5/pi-ozcar` is the quickest one-off load path.
 
 Then run:
 
