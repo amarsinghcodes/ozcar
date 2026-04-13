@@ -1,9 +1,7 @@
-import type { ZodIssue } from "zod";
-
-import { AuditArtifactSnapshotSchema } from "../../../../src/contracts/export";
 import type { PiExtensionApiLike, PiExtensionContextLike } from "../types";
 import {
-  checkpointAuditArtifactSnapshot,
+  storeAuditArtifactSnapshot,
+  validateAuditArtifactSnapshot,
 } from "../state/audit-artifact-snapshot";
 import { type AuditRuntimeState, getCurrentAuditState, renderMissingAuditStateMessage } from "../state/audit-session";
 
@@ -73,40 +71,21 @@ async function runAuditArtifactSnapshotTool(
     };
   }
 
-  const result = AuditArtifactSnapshotSchema.safeParse(snapshot);
-  if (!result.success) {
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: `Invalid audit snapshot: ${formatIssues(result.error.issues)}.`,
-        },
-      ],
-      details: {
-        auditId: "",
-        findingCount: 0,
-        validatedFindings: 0,
-      },
-    };
-  }
-
   try {
-    const storedSnapshot = checkpointAuditArtifactSnapshot(pi, result.data, state);
-    const validatedFindings = storedSnapshot.findings.filter(
-      (bundle) => bundle.validation.outcome === "validated",
-    ).length;
+    const validatedSnapshot = validateAuditArtifactSnapshot(snapshot);
+    const storedResult = storeAuditArtifactSnapshot(pi, validatedSnapshot, state);
 
     return {
       content: [
         {
           type: "text" as const,
-          text: `Stored validated audit snapshot for audit ${storedSnapshot.audit.auditId}. Findings: ${storedSnapshot.findings.length}. Export next with /ozcar-audit-export.`,
+          text: `Stored validated audit snapshot for audit ${storedResult.storedSnapshot.audit.auditId}. Findings: ${storedResult.findingCount}. Export next with /ozcar-audit-export.`,
         },
       ],
       details: {
-        auditId: storedSnapshot.audit.auditId,
-        findingCount: storedSnapshot.findings.length,
-        validatedFindings,
+        auditId: storedResult.storedSnapshot.audit.auditId,
+        findingCount: storedResult.findingCount,
+        validatedFindings: storedResult.validatedFindings,
       },
     };
   } catch (error) {
@@ -132,15 +111,6 @@ function readSnapshotParam(params: unknown): unknown | undefined {
   }
 
   return params.snapshot;
-}
-
-function formatIssues(issues: readonly ZodIssue[]): string {
-  return issues
-    .map((issue) => {
-      const location = issue.path.length > 0 ? issue.path.join(".") : "root";
-      return `${location}: ${issue.message}`;
-    })
-    .join("; ");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

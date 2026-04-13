@@ -1,0 +1,64 @@
+{
+  "audit": {
+    "auditId": "payments-vault",
+    "focus": "Investigate payments vault invariants",
+    "status": "completed"
+  },
+  "findings": [
+    {
+      "affectedCode": [
+        "src/WithdrawRouter.sol:18"
+      ],
+      "findingId": "reentrant-withdraw",
+      "impact": "Funds can be withdrawn twice from the same signed authorization.",
+      "labels": {
+        "auditId": "payments-vault"
+      },
+      "rootCause": "Nonce invalidation happens after the callback into user-controlled code.",
+      "severity": "critical",
+      "summary": "The withdraw callback can reenter before the nonce is burned.",
+      "title": "Reentrant withdraw path",
+      "triageDisposition": "confirmed",
+      "validationOutcome": "validated",
+      "whatGoesWrong": "A malicious receiver can execute a second withdraw with the same authorization."
+    },
+    {
+      "affectedCode": [
+        "src/Vault.sol:42",
+        "src/Vault.sol:87"
+      ],
+      "findingId": "unchecked-accounting",
+      "impact": "Users can observe incorrect share pricing after failed withdrawals.",
+      "labels": {
+        "auditId": "payments-vault"
+      },
+      "rootCause": "The accounting accumulator updates before external transfers succeed.",
+      "severity": "high",
+      "summary": "Accounting updates can drift before the vault settles balances.",
+      "title": "Unchecked accounting delta",
+      "triageDisposition": "confirmed",
+      "validationOutcome": "validated",
+      "whatGoesWrong": "A reverting downstream path leaves the vault in an overstated state."
+    }
+  ],
+  "generatedAt": "2026-04-12T20:08:00.000Z",
+  "reportedMetrics": {
+    "costUsd": 0.031,
+    "durationSeconds": 4.2,
+    "inputTokens": 321
+  },
+  "schemaVersion": 1,
+  "scope": {
+    "notes": [
+      "Rebuilds should ignore pending findings in human-facing reports."
+    ],
+    "objectives": [
+      "Confirm balance invariants",
+      "Confirm withdraw authorization safety"
+    ],
+    "targets": [
+      "src/Vault.sol",
+      "src/WithdrawRouter.sol"
+    ]
+  }
+}

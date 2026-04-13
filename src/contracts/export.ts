@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-import { AuditIdSchema, AuditStatusSchema, StoredAuditSchema, StoredAuditScopeSchema } from "./audit";
+import {
+  AuditIdSchema,
+  AuditStatusSchema,
+  ReportedAuditMetricsSchema,
+  StoredAuditSchema,
+  StoredAuditScopeSchema,
+} from "./audit";
 import { IsoTimestampSchema } from "./run";
 import { SeveritySchema, StoredFindingSchema } from "./finding";
 import { TriageDispositionSchema, StoredTriageSchema } from "./triage";
@@ -97,6 +103,7 @@ export const FindingsExportDocumentSchema = z.object({
     notes: StoredAuditScopeSchema.shape.notes,
   }),
   generatedAt: IsoTimestampSchema,
+  reportedMetrics: ReportedAuditMetricsSchema.optional(),
   findings: z.array(FindingsExportFindingSchema),
 });
 export type FindingsExportDocument = z.infer<typeof FindingsExportDocumentSchema>;

@@ -174,6 +174,9 @@ class RpcPiProcess {
 }
 
 function assertOzcarCommands(commands: RpcSlashCommand[]): void {
+  expect(commands.filter((command) => command.name === "ozcar-audit")).toHaveLength(1);
+  expect(commands.filter((command) => command.name === "skill:ozcar-audit")).toHaveLength(1);
+
   const commandByName = new Map(commands.map((command) => [command.name, command]));
 
   expect(commandByName.get("ozcar")).toEqual(
@@ -212,6 +215,12 @@ function assertOzcarCommands(commands: RpcSlashCommand[]): void {
       source: "extension",
     }),
   );
+  expect(commandByName.get("ozcar-audit-checkpoint")).toEqual(
+    expect.objectContaining({
+      name: "ozcar-audit-checkpoint",
+      source: "extension",
+    }),
+  );
   expect(commandByName.get("ozcar-audit-export")).toEqual(
     expect.objectContaining({
       name: "ozcar-audit-export",
@@ -235,6 +244,44 @@ function assertOzcarCommands(commands: RpcSlashCommand[]): void {
       sourceInfo: expect.objectContaining({
         path: path.join(repoRoot, ".pi", "skills", "ozcar-audit", "SKILL.md"),
         source: "extension:index",
+      }),
+    }),
+  );
+}
+
+function assertOzcarPackageCommands(commands: RpcSlashCommand[]): void {
+  expect(commands.filter((command) => command.name === "ozcar-audit")).toHaveLength(1);
+  expect(commands.filter((command) => command.name === "skill:ozcar-audit")).toHaveLength(1);
+
+  const commandByName = new Map(commands.map((command) => [command.name, command]));
+
+  expect(commandByName.get("ozcar")).toEqual(
+    expect.objectContaining({
+      name: "ozcar",
+      source: "extension",
+    }),
+  );
+  expect(commandByName.get("ozcar-audit-checkpoint")).toEqual(
+    expect.objectContaining({
+      name: "ozcar-audit-checkpoint",
+      source: "extension",
+    }),
+  );
+  expect(commandByName.get("ozcar-audit")).toEqual(
+    expect.objectContaining({
+      name: "ozcar-audit",
+      source: "prompt",
+      sourceInfo: expect.objectContaining({
+        path: path.join(repoRoot, ".pi", "prompts", "ozcar-audit.md"),
+      }),
+    }),
+  );
+  expect(commandByName.get("skill:ozcar-audit")).toEqual(
+    expect.objectContaining({
+      name: "skill:ozcar-audit",
+      source: "skill",
+      sourceInfo: expect.objectContaining({
+        path: path.join(repoRoot, ".pi", "skills", "ozcar-audit", "SKILL.md"),
       }),
     }),
   );
@@ -467,6 +514,30 @@ describeIfPi("ozcar Pi integration", () => {
       type: "get_commands",
     });
     assertOzcarCommands(reloadedCommands.data?.commands ?? []);
+  }, 20_000);
+
+  it("loads ozcar through the package root from another cwd", async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ozcar-pi-package-"));
+
+    process = new RpcPiProcess(
+      piBinary!,
+      [
+        "--mode",
+        "rpc",
+        "--offline",
+        "--no-session",
+        "--no-extensions",
+        "-e",
+        repoRoot,
+      ],
+      tempRoot,
+    );
+
+    const packageCommands = await process.send({
+      id: "package-root-commands",
+      type: "get_commands",
+    });
+    assertOzcarPackageCommands(packageCommands.data?.commands ?? []);
   }, 20_000);
 
   it("stages a configured audit model preset through Pi RPC editor requests", async () => {

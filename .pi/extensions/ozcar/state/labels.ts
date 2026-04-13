@@ -1,6 +1,16 @@
+import { createHash } from "node:crypto";
+
 import type { PiReadonlySessionManagerLike, PiSessionEntryLike } from "../types";
 
 export const AUDIT_LABEL_PREFIX = "audit";
+export const FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH = 64;
+
+const FOCUS_DERIVED_AUDIT_ID_HASH_LENGTH = 10;
+const FOCUS_DERIVED_AUDIT_ID_SEPARATOR = "-";
+const FOCUS_DERIVED_AUDIT_ID_PREFIX_LENGTH =
+  FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH -
+  FOCUS_DERIVED_AUDIT_ID_HASH_LENGTH -
+  FOCUS_DERIVED_AUDIT_ID_SEPARATOR.length;
 
 export const AUDIT_LABELED_BRANCH_KINDS = ["abandoned", "confirmed", "hypothesis"] as const;
 export type AuditLabeledBranchKind = (typeof AUDIT_LABELED_BRANCH_KINDS)[number];
@@ -24,7 +34,19 @@ export function normalizeAuditSlug(value: string): string {
 }
 
 export function deriveAuditId(focus: string): string {
-  return normalizeAuditSlug(focus).slice(0, 64);
+  const slug = normalizeAuditSlug(focus);
+  if (!slug) {
+    return "";
+  }
+
+  if (slug.length <= FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH) {
+    return slug;
+  }
+
+  const hash = createHash("sha256").update(slug).digest("hex").slice(0, FOCUS_DERIVED_AUDIT_ID_HASH_LENGTH);
+  const prefix = slug.slice(0, FOCUS_DERIVED_AUDIT_ID_PREFIX_LENGTH).replace(/[-._]+$/g, "");
+
+  return prefix ? `${prefix}${FOCUS_DERIVED_AUDIT_ID_SEPARATOR}${hash}` : hash;
 }
 
 export function buildAuditLabel(kind: AuditLabeledBranchKind, slug: string): string {

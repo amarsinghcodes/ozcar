@@ -7,7 +7,9 @@ import {
   OZCAR_AUDIT_START_COMMAND,
   OZCAR_AUDIT_STATE_COMMAND,
   OZCAR_AUDIT_STATE_CUSTOM_TYPE,
+  FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH,
   buildAuditLabel,
+  normalizeAuditSlug,
   parseAuditBranchArgs,
   parseAuditBranchToolParams,
   parseAuditStartArgs,
@@ -22,6 +24,7 @@ import {
   type PiSessionBeforeTreeResultLike,
   type PiToolDefinitionLike,
 } from "../.pi/extensions/ozcar/index";
+import { getAuditArtifactPaths } from "../src/artifacts/store";
 
 function createRepoPaths() {
   return resolveOzcarPaths(new URL("../.pi/extensions/ozcar/index.ts", import.meta.url).href);
@@ -259,6 +262,32 @@ describe("ozcar Phase 3 audit workflow", () => {
       slug: "confirmed-high",
     });
     expect(parseAuditBranchToolParams({ kind: "abandoned", note: "Park it", slug: "false positive" })).toBeUndefined();
+  });
+
+  it("derives distinct audit roots for long similar focuses that used to collide under truncation", () => {
+    const sharedFocusPrefix =
+      "Investigate payments vault invariants around withdrawal callback ordering and nonce accounting for collision regression coverage";
+    const focusA = `${sharedFocusPrefix} alpha branch evidence`;
+    const focusB = `${sharedFocusPrefix} beta branch evidence`;
+
+    const normalizedA = normalizeAuditSlug(focusA);
+    const normalizedB = normalizeAuditSlug(focusB);
+
+    expect(normalizedA.slice(0, FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH)).toBe(
+      normalizedB.slice(0, FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH),
+    );
+
+    const parsedA = parseAuditStartArgs(focusA);
+    const parsedB = parseAuditStartArgs(focusB);
+
+    expect(parsedA).toBeDefined();
+    expect(parsedB).toBeDefined();
+    expect(parsedA?.auditId).not.toBe(parsedB?.auditId);
+    expect(parsedA?.auditId.length).toBeLessThanOrEqual(FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH);
+    expect(parsedB?.auditId.length).toBeLessThanOrEqual(FOCUS_DERIVED_AUDIT_ID_MAX_LENGTH);
+    expect(
+      getAuditArtifactPaths("/Users/x/oz/ozcar", parsedA?.auditId ?? "").auditRoot,
+    ).not.toBe(getAuditArtifactPaths("/Users/x/oz/ozcar", parsedB?.auditId ?? "").auditRoot);
   });
 
   it("starts an audit, marks a hypothesis branch, and reports restored state through commands", async () => {

@@ -23,6 +23,7 @@ const commands: Record<string, CommandHandler> = {
 function renderHelp(): string {
   return [
     "Usage: ozcar <command> [options]",
+    "Compatibility-only transition CLI. Prefer loading ozcar through Pi with: pi -e /path/to/ozcar",
     "",
     "Commands:",
     "  init     Create a new durable run store",

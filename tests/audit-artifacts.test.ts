@@ -50,8 +50,15 @@ describe("Phase 4 audit artifacts and Phase 6 export surface", () => {
     const exportPayload = JSON.parse(originalExport) as {
       findings: Array<{ findingId: string }>;
       generatedAt: string;
+      reportedMetrics?: {
+        costUsd?: number;
+        durationSeconds?: number;
+        inputTokens?: number;
+        outputTokens?: number;
+      };
     };
     expect(exportPayload.generatedAt).toBe("2026-04-12T20:08:00.000Z");
+    expect(exportPayload).not.toHaveProperty("reportedMetrics");
     expect(exportPayload.findings.map((finding) => finding.findingId)).toEqual([
       "reentrant-withdraw",
       "unchecked-accounting",
@@ -192,6 +199,96 @@ describe("Phase 4 audit artifacts and Phase 6 export surface", () => {
     const paths = getAuditArtifactPaths(workspaceRoot, snapshot.audit.auditId);
     const expectedFixture = await fs.readFile(new URL("./fixtures/phase6/findings-export.expected.json", import.meta.url), "utf8");
 
+    expect(await fs.readFile(paths.findingsExportFile, "utf8")).toBe(expectedFixture);
+  });
+
+  it("exports only the authoritative reported metrics present on the stored audit contract", async () => {
+    const workspaceRoot = await createWorkspace();
+    const snapshot = withReportedMetrics(createAuditSnapshot(["needs-follow-up", "unchecked-accounting", "reentrant-withdraw"]), {
+      durationSeconds: 4.2,
+      costUsd: 0.031,
+      inputTokens: 321,
+    });
+
+    await materializeAuditArtifacts({
+      snapshot,
+      workspaceRoot,
+    });
+
+    const paths = getAuditArtifactPaths(workspaceRoot, snapshot.audit.auditId);
+    const originalExport = await fs.readFile(paths.findingsExportFile, "utf8");
+    const exportPayload = JSON.parse(originalExport) as {
+      generatedAt: string;
+      reportedMetrics?: {
+        costUsd?: number;
+        durationSeconds?: number;
+        inputTokens?: number;
+        outputTokens?: number;
+      };
+    };
+    const storedAuditPayload = JSON.parse(await fs.readFile(paths.auditFile, "utf8")) as {
+      reportedMetrics?: {
+        costUsd?: number;
+        durationSeconds?: number;
+        inputTokens?: number;
+        outputTokens?: number;
+      };
+    };
+    const expectedFixture = await fs.readFile(
+      new URL("./fixtures/phase8/findings-export.partial.expected.json", import.meta.url),
+      "utf8",
+    );
+
+    expect(exportPayload.generatedAt).toBe("2026-04-12T20:08:00.000Z");
+    expect(exportPayload.reportedMetrics).toEqual({
+      costUsd: 0.031,
+      durationSeconds: 4.2,
+      inputTokens: 321,
+    });
+    expect(storedAuditPayload.reportedMetrics).toEqual(exportPayload.reportedMetrics);
+    expect(originalExport).toBe(expectedFixture);
+
+    await fs.writeFile(paths.findingsExportFile, "# stale export\n", "utf8");
+
+    await rebuildAuditArtifacts({
+      auditId: snapshot.audit.auditId,
+      workspaceRoot,
+    });
+
+    expect(await fs.readFile(paths.findingsExportFile, "utf8")).toBe(expectedFixture);
+  });
+
+  it("pins the stable full reported-metrics export bytes for downstream Phase 8 consumers", async () => {
+    const workspaceRoot = await createWorkspace();
+    const snapshot = withReportedMetrics(createAuditSnapshot(["needs-follow-up", "unchecked-accounting", "reentrant-withdraw"]), {
+      durationSeconds: 4.2,
+      costUsd: 0.031,
+      inputTokens: 321,
+      outputTokens: 123,
+    });
+
+    await materializeAuditArtifacts({
+      snapshot,
+      workspaceRoot,
+    });
+
+    const paths = getAuditArtifactPaths(workspaceRoot, snapshot.audit.auditId);
+    const exportPayload = JSON.parse(await fs.readFile(paths.findingsExportFile, "utf8")) as {
+      reportedMetrics?: {
+        costUsd?: number;
+        durationSeconds?: number;
+        inputTokens?: number;
+        outputTokens?: number;
+      };
+    };
+    const expectedFixture = await fs.readFile(new URL("./fixtures/phase8/findings-export.full.expected.json", import.meta.url), "utf8");
+
+    expect(exportPayload.reportedMetrics).toEqual({
+      costUsd: 0.031,
+      durationSeconds: 4.2,
+      inputTokens: 321,
+      outputTokens: 123,
+    });
     expect(await fs.readFile(paths.findingsExportFile, "utf8")).toBe(expectedFixture);
   });
 
@@ -480,6 +577,19 @@ function withNoValidatedFindings(snapshot: AuditArtifactSnapshot): AuditArtifact
           }
         : bundle,
     ),
+  };
+}
+
+function withReportedMetrics(
+  snapshot: AuditArtifactSnapshot,
+  reportedMetrics: NonNullable<AuditArtifactSnapshot["audit"]["reportedMetrics"]>,
+): AuditArtifactSnapshot {
+  return {
+    ...snapshot,
+    audit: {
+      ...snapshot.audit,
+      reportedMetrics,
+    },
   };
 }
 

@@ -4,11 +4,13 @@ import {
   FindingsExportDocument,
   FindingsExportDocumentSchema,
 } from "../contracts/export";
+import { normalizeReportedAuditMetrics } from "../contracts/audit";
 import { sortValidatedBundles } from "./shared";
 
 export function buildFindingsExportDocument(snapshot: AuditArtifactSnapshot): FindingsExportDocument {
   const normalizedSnapshot = AuditArtifactSnapshotSchema.parse(snapshot);
   const validated = sortValidatedBundles(normalizedSnapshot.findings);
+  const reportedMetrics = normalizeReportedAuditMetrics(normalizedSnapshot.audit.reportedMetrics);
 
   return FindingsExportDocumentSchema.parse({
     schemaVersion: 1,
@@ -23,6 +25,7 @@ export function buildFindingsExportDocument(snapshot: AuditArtifactSnapshot): Fi
       targets: [...normalizedSnapshot.scope.targets],
     },
     generatedAt: deriveFindingsExportTimestamp(validated, normalizedSnapshot.audit.createdAt),
+    ...(reportedMetrics ? { reportedMetrics } : {}),
     findings: validated.map((bundle) => ({
       findingId: bundle.finding.findingId,
       title: bundle.finding.title,

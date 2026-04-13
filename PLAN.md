@@ -4,7 +4,7 @@
 
 Build `ozcar` as a TypeScript-only, project-local Pi extension pack for audit workflows, not as a standalone provider-orchestration CLI. Pi owns the interactive session runtime, auth/login, model registry, provider selection, session tree, and context compaction. `ozcar` owns audit-specific slash commands, tools, skills, prompt packs, JSON artifact contracts, and mechanical report/export generation.
 
-The durable v1 outcome is an ergonomic audit loop that runs inside Pi using project-local `.pi/extensions`, `.pi/skills`, `.pi/prompts`, and AGENTS/context files. Scope exploration, alternate hypotheses, and long-running audit branches should use Pi's `/tree`, labels, and branch summaries instead of a parallel run-store conversation system. Audit outputs remain repo-owned and JSON-first so downstream harnesses can rebuild Markdown and benchmark exports from validated findings.
+The durable v1 outcome is an ergonomic audit loop that runs inside Pi using project-local `.pi/extensions`, `.pi/skills`, `.pi/prompts`, and AGENTS/context files, and that can also load as a reusable Pi package in other repos without falling back to the transition CLI as the primary interface. Scope exploration, alternate hypotheses, and long-running audit branches should use Pi's `/tree`, labels, and branch summaries instead of a parallel run-store conversation system. Audit outputs remain repo-owned and JSON-first so downstream harnesses can rebuild Markdown and benchmark exports from validated findings plus authoritative reported metrics emitted by `ozcar` itself.
 
 The research that informed this pivot was written from `~/oz`. From this repo root, translate those references to parent-relative paths such as `../fuzzing-team-foz/...` and `../apprentice-victor/...` where applicable. Upstream Pi repos remain read-only design references; `PLAN.md` and `AGENTS.md` remain the canonical contract for `ozcar`.
 
@@ -13,9 +13,11 @@ The research that informed this pivot was written from `~/oz`. From this repo ro
 - Keep the audit-specific code TypeScript-only.
 - Pi owns provider auth, `/login`, model registry, provider resolution, session storage, and tree navigation. Do not add a repo-owned live provider runtime, CLI preflight layer, OAuth store, or duplicate conversation tree.
 - Prefer Pi built-ins and project-local extension packaging. Put user-facing workflow entrypoints in `.pi/extensions/`, `.pi/skills/`, `.pi/prompts/`, and `resources_discover` instead of wrapping Pi in another CLI.
+- When the repo-local Pi surface needs to load outside this checkout, expose it through a package-level `pi` manifest and keep the package surface extension-first. Do not make the transition CLI or raw extension file paths the primary long-term integration contract.
 - If provider customization becomes necessary, use `pi.registerProvider()` plus existing `@mariozechner/pi-ai` streaming implementations or thin baseUrl/header/model overrides. Do not copy OAuth or streaming internals from `pi-mono`; treat `custom-provider-anthropic` as an anti-pattern and `custom-provider-gitlab-duo` as the preferred shape.
 - Use Pi session labels, branch summaries, and `/tree` for scope branches, alternative hypotheses, and context recovery. Do not maintain a second session-history state machine inside `ozcar`.
 - Keep machine contracts JSON-first. Findings, triage, validation, and export JSON remain canonical; Markdown reports are rebuilt mechanically from validated JSON.
+- Keep reported comparison metrics authoritative and repo-owned. Duration, cost, and token fields must be emitted by `ozcar` contracts and exports, not inferred later from transcripts or benchmark-side regex scraping.
 - Keep extension modules small and boring. Prefer focused commands, tools, and state helpers over one monolithic extension or duplicated helper trees.
 - Paths outside this repo are read-only design references unless the user expands scope.
 
@@ -23,6 +25,7 @@ The research that informed this pivot was written from `~/oz`. From this repo ro
 
 - Core Pi extension and session docs:
   - `badlogic/pi-mono/packages/coding-agent/docs/extensions.md`
+  - `badlogic/pi-mono/packages/coding-agent/docs/packages.md`
   - `badlogic/pi-mono/packages/coding-agent/docs/tree.md`
   - `badlogic/pi-mono/packages/coding-agent/docs/session.md`
   - `badlogic/pi-mono/packages/coding-agent/docs/providers.md`
@@ -48,18 +51,31 @@ The research that informed this pivot was written from `~/oz`. From this repo ro
   - `../fuzzing-team-foz/scripts/foz-init.js`
   - `../apprentice-victor/CritFinder/README.md`
   - `../auditor-bench/tests/test_adapters.py`
+  - `../auditor-bench/src/auditor_benchmark/adapters/ozcar.py`
+  - `../auditor-bench/src/auditor_benchmark/models.py`
+  - `../auditor-bench/src/auditor_benchmark/reporting.py`
+  - `../auditor-bench/src/auditor_benchmark/runner.py`
 
-Borrow Pi's extension discovery, resource loading, auth storage, model registry, session tree, branch summaries, slash-command ergonomics, and thin provider registration. Borrow FOZ/CritFinder only for durable audit artifact contracts and benchmark-facing export expectations. Do not copy standalone provider runners, OAuth stores, monolithic shell orchestration, or duplicated context-management layers.
+Borrow Pi's extension discovery, resource loading, auth storage, model registry, session tree, branch summaries, slash-command ergonomics, package manifests, and thin provider registration. Borrow FOZ/CritFinder only for durable audit artifact contracts and benchmark-facing export expectations. Borrow `../auditor-bench` only for the comparison-dimension semantics around authoritative reported duration, cost, and token metrics. Do not copy standalone provider runners, OAuth stores, monolithic shell orchestration, benchmark-side regex extraction, or duplicated context-management layers.
 
 ## Target Layout
 
 ```text
+package.json
+  pi:
+    extensions:
+      - ./.pi/extensions/ozcar/index.ts
+    prompts:
+      - ./.pi/prompts
+    skills:
+      - ./.pi/skills
 .pi/
   extensions/
     ozcar/
       index.ts
       commands/
         audit.ts
+        checkpoint.ts
         findings.ts
         export.ts
         context.ts
@@ -239,8 +255,46 @@ Acceptance criteria:
 - benchmark comparisons in this repo are defined against exported validated findings, not raw session text
 - adapter drift remains downstream integration work rather than a reason to reshape the internal contracts
 
+### Phase 7: Pi-Native Ergonomics Hardening
+
+Status: complete
+
+Objective:
+Eliminate the remaining root-cause ergonomics defects from the latest Pi-SOTA review by making audit identities collision-resistant, exposing a human-usable checkpoint seam, and promoting `ozcar`'s package surface to Pi-first instead of CLI-first.
+
+Deliverables:
+- collision-resistant audit id generation for focus-only `/ozcar-audit-start <focus>` flows, plus regression coverage for long similar focuses
+- a human-facing checkpoint surface that shares the same backend contract as `ozcar_store_audit_snapshot` instead of leaving durable export preparation as an agent-only tool path
+- `package.json` Pi package metadata and resource exposure so this repo can load ergonomically through package-level Pi conventions in addition to project-local auto-discovery
+- package-first README/help/test coverage that proves the repo-local extension surface works both in this checkout and when loaded from another repo without teaching the transition CLI as the primary user workflow
+
+Acceptance criteria:
+- focus-only audit starts no longer risk `.ai-auditor/audits/<audit-id>/` collisions from truncated slug prefixes
+- a human can checkpoint a validated audit snapshot and run `/ozcar-audit-export` without relying on an agent-only tool call
+- Pi can load this repo through a package-level manifest or equivalent package surface, and repo docs/help no longer present the legacy CLI as the primary integration contract
+
+### Phase 8: Authoritative Reported Metrics Export
+
+Status: current
+
+Objective:
+Extend the repo-local export contract so `ozcar` emits authoritative reported runtime, token, and cost metrics in a JSON-first form aligned with the comparison dimensions consumed by `../auditor-bench`.
+
+Deliverables:
+- export-contract support for authoritative reported duration, cost, input-token, and output-token data emitted by `ozcar`, with a schema/version update if required
+- deterministic export/rebuild wiring that keeps measured wall-clock concerns separate from `ozcar`-reported duration, cost, and token facts
+- guidance and fixtures that align the repo-local metric semantics one-to-one with the `../auditor-bench` reported comparison dimensions while preserving `ozcar`'s existing JSON conventions
+- regression coverage for missing, partial, and full reported-metric exports without relying on transcript scraping or benchmark-side inference
+
+Acceptance criteria:
+- the canonical export contract emits authoritative reported duration, cost, input-token, and output-token fields when `ozcar` has them, with explicit deterministic behavior when some fields are unavailable
+- the metric semantics align directly with `../auditor-bench`'s reported runtime and reported cost/token comparison dimensions without requiring transcript scraping
+- deterministic tests and fixtures prove the reported-metric surface remains stable across rebuilds and future adapter work
+
 Current state:
-The Phase 4 JSON artifact export and mechanical report seam remains in place, validated, repaired, and reviewed, including deterministic on-disk contract enforcement, canonical export timestamps, and Pi-backed snapshot checkpointing for `/ozcar-audit-export`. The Phase 5 model-preset seam is now implemented, repaired, and reviewed, including repo-local `/ozcar-audit-model` presets that stay Pi-owned, live Pi RPC proof for editor-staged `/model` commands, and slash-containing model-id support aligned with Pi's canonical `provider/modelId` behavior. Phase 6 is now implemented, repaired, and reviewed inside this repo, including the stable validated-only `exports/findings.json` surface, downstream-facing guidance and golden fixtures, validated-only export timestamp derivation, zero-validated export fallback coverage, and explicit same-phase handling for metadata-only artifact cross-link drift. The standalone TypeScript CLI and dry-run artifact code remain as transition-era prototype surfaces. Downstream adapter migration in sibling repos remains external follow-up and is not an active in-repo implementation slice unless the user expands scope.
+The Phase 4 JSON artifact export and mechanical report seam remains in place, validated, repaired, and reviewed, including deterministic on-disk contract enforcement, canonical export timestamps, and Pi-backed snapshot checkpointing for `/ozcar-audit-export`. The Phase 5 model-preset seam is now implemented, repaired, and reviewed, including repo-local `/ozcar-audit-model` presets that stay Pi-owned, live Pi RPC proof for editor-staged `/model` commands, and slash-containing model-id support aligned with Pi's canonical `provider/modelId` behavior. Phase 6 is now implemented, repaired, and reviewed inside this repo, including the stable validated-only `exports/findings.json` surface, downstream-facing guidance and golden fixtures, validated-only export timestamp derivation, zero-validated export fallback coverage, and explicit same-phase handling for metadata-only artifact cross-link drift.
+
+Phase 7 is now implemented, validated, and reviewed inside this repo, including collision-resistant focus-derived audit ids for long similar focuses, a human-facing `/ozcar-audit-checkpoint` command that reuses the same validated snapshot backend as `ozcar_store_audit_snapshot`, and package-first Pi metadata/help/load coverage that works both repo-local and from another cwd without presenting the legacy CLI as the primary contract. Phase 8 is now the active repo-local slice and will extend the export contract with authoritative reported runtime, cost, and token metrics aligned to the comparison dimensions already modeled in `../auditor-bench` while keeping measured wall-clock concerns separate from `ozcar`-reported facts. Sibling-repo adapter changes remain external follow-up unless the user expands scope.
 
 ## Global Validation Rules
 
@@ -250,6 +304,8 @@ The Phase 4 JSON artifact export and mechanical report seam remains in place, va
 - New audit commands or tools must validate against both non-interactive fallbacks and interactive Pi UI behavior where applicable.
 - JSON/report slices must add deterministic rebuild tests from stored contracts.
 - Provider-related work must prove it delegates to Pi or `@mariozechner/pi-ai`; copied OAuth or streaming code is a plan violation.
+- Pi packaging or ergonomics slices must validate both project-local auto-discovery and one package-level load path that works from another repo or cwd.
+- Reported-metrics slices must keep measured wall-clock time separate from `ozcar`-reported duration/cost/token facts and must not rely on transcript scraping or benchmark-side regex extraction to populate authoritative fields.
 - Metadata-only review/fix/plan cross-link drift should be repaired opportunistically inside the active same-phase loop and must not block phase progress by itself unless it points the next worker at the wrong target artifact or makes the active slice ambiguous.
 - Every persisted implementation run writes `docs/execs/{UTC_TIMESTAMP}_EXEC.md` using the local template.
 - Every persisted review run writes `docs/reviews/{UTC_TIMESTAMP}_REVIEW.md` using the local template.
@@ -261,5 +317,5 @@ The Phase 4 JSON artifact export and mechanical report seam remains in place, va
 2. Read this `PLAN.md`.
 3. Read the newest `docs/plans/*_PLAN.md` record for the active slice.
 4. If implementation has started, read the active `docs/execs/*_EXEC.md`; for review or repair loops, read the corresponding artifact under `docs/reviews/` or `docs/fixes/`.
-5. Before extension-design work, re-read the relevant Pi references from the External Reference Map instead of relying on memory.
+5. Before extension-design or export-contract work, re-read the relevant Pi and `../auditor-bench` references from the External Reference Map instead of relying on memory.
 6. Continue only the current phase unless the defined gates explicitly move work forward.

@@ -1,10 +1,11 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
 import {
   OZCAR_AUDIT_BRANCH_COMMAND,
+  OZCAR_AUDIT_CHECKPOINT_COMMAND,
   OZCAR_AUDIT_EXPORT_COMMAND,
   OZCAR_AUDIT_MODEL_COMMAND,
   OZCAR_AUDIT_BRANCH_TOOL,
@@ -91,6 +92,7 @@ describe("ozcar Pi extension scaffold", () => {
     expect(commandRegistry.has(OZCAR_AUDIT_STATE_COMMAND)).toBe(true);
     expect(commandRegistry.has(OZCAR_AUDIT_BRANCH_COMMAND)).toBe(true);
     expect(commandRegistry.has(OZCAR_AUDIT_MODEL_COMMAND)).toBe(true);
+    expect(commandRegistry.has(OZCAR_AUDIT_CHECKPOINT_COMMAND)).toBe(true);
     expect(commandRegistry.has(OZCAR_AUDIT_EXPORT_COMMAND)).toBe(true);
     expect(toolRegistry.get(OZCAR_AUDIT_BRANCH_TOOL)?.description).toContain("Pi session state");
     expect(toolRegistry.get(OZCAR_STORE_AUDIT_SNAPSHOT_TOOL)?.description).toContain("Phase 4 audit snapshot");
@@ -113,6 +115,7 @@ describe("ozcar Pi extension scaffold", () => {
 
   it("renders repo-local help for /ozcar", () => {
     const notify = vi.fn();
+    const paths = createRepoPaths();
 
     handleOzcarCommand(
       "",
@@ -122,22 +125,53 @@ describe("ozcar Pi extension scaffold", () => {
           notify,
         },
       },
-      createRepoPaths(),
+      paths,
     );
 
     expect(notify).toHaveBeenCalledWith(expect.stringContaining(`/${OZCAR_PROMPT_TEMPLATE}`), "info");
+    expect(notify.mock.calls[0]?.[0]).toContain(`pi -e ${paths.repoRoot}`);
     expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_START_COMMAND}`);
+    expect(notify.mock.calls[0]?.[0]).toContain(`<audit-id> :: <focus>`);
     expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_MODEL_COMMAND}`);
     expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_STATE_COMMAND}`);
     expect(notify.mock.calls[0]?.[0]).toContain(`<hypothesis|confirmed>`);
     expect(notify.mock.calls[0]?.[0]).not.toContain(`<hypothesis|confirmed|abandoned>`);
+    expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_CHECKPOINT_COMMAND}`);
+    expect(notify.mock.calls[0]?.[0]).toContain("Human export flow");
     expect(notify.mock.calls[0]?.[0]).toContain(`/${OZCAR_AUDIT_EXPORT_COMMAND}`);
     expect(notify.mock.calls[0]?.[0]).toContain("exports/findings.json");
-    expect(notify.mock.calls[0]?.[0]).not.toContain("<snapshot.json>");
+    expect(notify.mock.calls[0]?.[0]).toContain("<snapshot.json>");
     expect(notify.mock.calls[0]?.[0]).toContain(`/skill:${OZCAR_SKILL}`);
     expect(notify.mock.calls[0]?.[0]).toContain(OZCAR_AUDIT_BRANCH_TOOL);
     expect(notify.mock.calls[0]?.[0]).toContain(OZCAR_STORE_AUDIT_SNAPSHOT_TOOL);
     expect(notify.mock.calls[0]?.[0]).toContain("/reload");
+  });
+
+  it("advertises a Pi package manifest that points at the repo-local extension resources", () => {
+    const paths = createRepoPaths();
+    const packageJson = JSON.parse(readFileSync(path.join(paths.repoRoot, "package.json"), "utf8")) as {
+      keywords?: string[];
+      pi?: {
+        extensions?: string[];
+        prompts?: string[];
+        skills?: string[];
+      };
+    };
+
+    expect(packageJson.keywords).toEqual(expect.arrayContaining(["pi-extension", "pi-package"]));
+    expect(packageJson.pi).toEqual({
+      extensions: ["./.pi/extensions/ozcar/index.ts"],
+      prompts: ["./.pi/prompts"],
+      skills: ["./.pi/skills"],
+    });
+
+    for (const resourcePath of [
+      ...(packageJson.pi?.extensions ?? []),
+      ...(packageJson.pi?.prompts ?? []),
+      ...(packageJson.pi?.skills ?? []),
+    ]) {
+      expect(existsSync(path.join(paths.repoRoot, resourcePath))).toBe(true);
+    }
   });
 
   it("rejects unsupported /ozcar subcommands", () => {

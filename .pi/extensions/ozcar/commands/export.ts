@@ -20,7 +20,7 @@ export function registerAuditExportCommand(
 ): void {
   pi.registerCommand(OZCAR_AUDIT_EXPORT_COMMAND, {
     description:
-      "Materialize repo-owned audit artifacts plus the stable findings.json comparison surface from the latest validated audit snapshot stored on the current Pi branch",
+      "Materialize repo-owned audit artifacts plus the stable findings.json comparison surface, including authoritative reported metrics when present in the stored audit contract, from the latest validated audit snapshot stored on the current Pi branch through /ozcar-audit-checkpoint or the LLM tool",
     handler: async (args, ctx) => {
       const state = getCurrentAuditState(runtime, ctx.sessionManager);
       if (!state) {
@@ -44,6 +44,7 @@ export function registerAuditExportCommand(
           snapshot,
           workspaceRoot: ctx.cwd,
         });
+        const reportedMetricsMessage = renderReportedMetricsMessage(result.findingsExport.reportedMetrics);
 
         ctx.ui.notify(
           [
@@ -51,6 +52,7 @@ export function registerAuditExportCommand(
             `Audit root: .ai-auditor/audits/${result.auditId}`,
             `Downstream comparison input: .ai-auditor/audits/${result.auditId}/exports/findings.json`,
             "Source discipline: validated findings only; Pi transcripts are not part of this contract.",
+            reportedMetricsMessage,
             "Comparison assumptions: capture provider/model/time budget separately from Pi or the benchmark harness.",
             `Rebuilt: summary.md, confirmed-findings.md, exports/findings.json`,
             `Validated findings: ${result.validatedFindings}`,
@@ -62,4 +64,31 @@ export function registerAuditExportCommand(
       }
     },
   });
+}
+
+function renderReportedMetricsMessage(metrics: {
+  costUsd?: number | undefined;
+  durationSeconds?: number | undefined;
+  inputTokens?: number | undefined;
+  outputTokens?: number | undefined;
+} | undefined): string {
+  if (!metrics) {
+    return "Authoritative reported metrics: none stored in the audit contract; measured wall-clock stays external.";
+  }
+
+  const parts: string[] = [];
+
+  if (metrics.durationSeconds !== undefined) {
+    parts.push(`duration=${metrics.durationSeconds}s`);
+  }
+
+  if (metrics.costUsd !== undefined) {
+    parts.push(`cost=$${metrics.costUsd}`);
+  }
+
+  if (metrics.inputTokens !== undefined || metrics.outputTokens !== undefined) {
+    parts.push(`tokens=${metrics.inputTokens ?? "n/a"} in / ${metrics.outputTokens ?? "n/a"} out`);
+  }
+
+  return `Authoritative reported metrics: ${parts.join("; ")}. Measured wall-clock stays external.`;
 }

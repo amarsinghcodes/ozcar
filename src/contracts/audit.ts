@@ -15,6 +15,38 @@ export type AuditBranchKind = z.infer<typeof AuditBranchKindSchema>;
 export const AuditStatusSchema = z.enum(["active", "completed"]);
 export type AuditStatus = z.infer<typeof AuditStatusSchema>;
 
+const NonNegativeFiniteNumberSchema = z.number().finite().nonnegative();
+const NonNegativeIntegerSchema = z.number().int().nonnegative();
+
+const ReportedAuditMetricsValueSchema = z.object({
+  durationSeconds: NonNegativeFiniteNumberSchema.optional(),
+  costUsd: NonNegativeFiniteNumberSchema.optional(),
+  inputTokens: NonNegativeIntegerSchema.optional(),
+  outputTokens: NonNegativeIntegerSchema.optional(),
+});
+export type ReportedAuditMetrics = z.infer<typeof ReportedAuditMetricsValueSchema>;
+
+export function normalizeReportedAuditMetrics(
+  metrics: ReportedAuditMetrics | undefined,
+): ReportedAuditMetrics | undefined {
+  if (!metrics) {
+    return undefined;
+  }
+
+  const normalized = {
+    ...(metrics.durationSeconds !== undefined ? { durationSeconds: metrics.durationSeconds } : {}),
+    ...(metrics.costUsd !== undefined ? { costUsd: metrics.costUsd } : {}),
+    ...(metrics.inputTokens !== undefined ? { inputTokens: metrics.inputTokens } : {}),
+    ...(metrics.outputTokens !== undefined ? { outputTokens: metrics.outputTokens } : {}),
+  };
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+export const ReportedAuditMetricsSchema = ReportedAuditMetricsValueSchema.transform((metrics) =>
+  normalizeReportedAuditMetrics(metrics),
+);
+
 export const StoredAuditSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -26,6 +58,7 @@ export const StoredAuditSchema = z
     source: z.string().trim().min(1),
     createdAt: IsoTimestampSchema,
     updatedAt: IsoTimestampSchema,
+    reportedMetrics: ReportedAuditMetricsSchema.optional(),
   })
   .superRefine((audit, ctx) => {
     if (audit.branchKind !== "root" && !audit.branchSlug) {

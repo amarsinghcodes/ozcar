@@ -9,6 +9,10 @@ import {
   OZCAR_AUDIT_STATE_COMMAND,
   registerAuditCommands,
 } from "./commands/audit";
+import {
+  OZCAR_AUDIT_CHECKPOINT_COMMAND,
+  registerAuditCheckpointCommand,
+} from "./commands/checkpoint";
 import { OZCAR_AUDIT_EXPORT_COMMAND, registerAuditExportCommand } from "./commands/export";
 import { OZCAR_AUDIT_MODEL_COMMAND, registerAuditModelCommand } from "./commands/model";
 import { OZCAR_STORE_AUDIT_SNAPSHOT_TOOL, registerAuditArtifactSnapshotTool } from "./tools/audit-artifact-snapshot";
@@ -63,15 +67,18 @@ function formatRepoPath(paths: OzcarPaths, absolutePath: string): string {
 export function renderOzcarHelp(paths: OzcarPaths): string {
   return [
     "ozcar Pi audit workflow ready.",
-    `Use /${OZCAR_AUDIT_START_COMMAND} <focus> to initialize repo-local audit state on the current branch.`,
+    `Load this package from another repo or cwd with pi -e ${paths.repoRoot}. Starting Pi inside ${paths.repoRoot} still auto-discovers the local .pi surface.`,
+    `Use /${OZCAR_AUDIT_START_COMMAND} <focus> for a collision-resistant default audit id, or /${OZCAR_AUDIT_START_COMMAND} <audit-id> :: <focus> to pin a custom audit root.`,
     `Use /${OZCAR_AUDIT_MODEL_COMMAND} [balanced|deep|economy] to queue a repo-local Pi /model command from the current shell preset.`,
     `Use /${OZCAR_PROMPT_TEMPLATE} [focus] to enter the repo-local audit prompt once state exists.`,
     `Use /skill:${OZCAR_SKILL} [focus] when you want the repo-local audit skill loaded explicitly.`,
     `Use /${OZCAR_AUDIT_RESUME_COMMAND} or /${OZCAR_AUDIT_STATE_COMMAND} after /resume, /tree, or /reload.`,
     `Use /${OZCAR_AUDIT_BRANCH_COMMAND} <hypothesis|confirmed> <slug> [:: note] to label active audit branches.`,
+    `Use /${OZCAR_AUDIT_CHECKPOINT_COMMAND} <snapshot.json> to validate and store a Phase 4 snapshot file on this branch before export.`,
     `Use /${OZCAR_AUDIT_EXPORT_COMMAND} to materialize .ai-auditor/audits/<audit-id>/ artifacts and the stable exports/findings.json comparison surface from the latest validated audit snapshot stored on this Pi branch.`,
+    `Human export flow: /${OZCAR_AUDIT_CHECKPOINT_COMMAND} <snapshot.json> -> /${OZCAR_AUDIT_EXPORT_COMMAND}.`,
     `LLM tool: ${OZCAR_AUDIT_BRANCH_TOOL} mirrors the same branch checkpointing surface for agent turns.`,
-    `LLM tool: ${OZCAR_STORE_AUDIT_SNAPSHOT_TOOL} stores the validated Phase 4 audit snapshot for later /${OZCAR_AUDIT_EXPORT_COMMAND}.`,
+    `LLM tool: ${OZCAR_STORE_AUDIT_SNAPSHOT_TOOL} mirrors the same snapshot backend for agent turns.`,
     "Use /tree with summarization enabled when leaving a hypothesis or confirmed branch so ozcar can persist the abandoned summary state.",
     "Use /reload after editing `.pi/` resources.",
     `Prompt resource: ${formatRepoPath(paths, path.join(paths.promptsDir, `${OZCAR_PROMPT_TEMPLATE}.md`))}`,
@@ -121,6 +128,7 @@ export function registerOzcarExtension(
 
   registerAuditCommands(pi, runtime, paths);
   registerAuditModelCommand(pi);
+  registerAuditCheckpointCommand(pi, runtime);
   registerAuditExportCommand(pi, runtime);
   registerAuditBranchTool(pi, runtime);
   registerAuditArtifactSnapshotTool(pi, runtime);
@@ -128,6 +136,7 @@ export function registerOzcarExtension(
 
 export { renderMissingAuditStateMessage } from "./state/audit-session";
 export * from "./commands/audit";
+export * from "./commands/checkpoint";
 export * from "./commands/export";
 export * from "./commands/model";
 export * from "./providers/presets";

@@ -2,7 +2,24 @@
   "name": "ozcar",
   "version": "0.1.0",
   "private": true,
-  "description": "Phase 1 foundation for the ozcar audit runner",
+  "description": "Pi-first ozcar audit extension package",
+  "keywords": [
+    "audit",
+    "pi-extension",
+    "pi-package",
+    "security"
+  ],
+  "pi": {
+    "extensions": [
+      "./.pi/extensions/ozcar/index.ts"
+    ],
+    "prompts": [
+      "./.pi/prompts"
+    ],
+    "skills": [
+      "./.pi/skills"
+    ]
+  },
   "bin": {
     "ozcar": "dist/cli.js"
   },

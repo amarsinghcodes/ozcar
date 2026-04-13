@@ -8,6 +8,12 @@ import type { RestoredAuditState } from "./audit-session";
 
 export const OZCAR_AUDIT_ARTIFACT_SNAPSHOT_CUSTOM_TYPE = "ozcar-audit-artifact-snapshot";
 
+export interface StoredAuditArtifactSnapshotResult {
+  findingCount: number;
+  storedSnapshot: AuditArtifactSnapshot;
+  validatedFindings: number;
+}
+
 export function checkpointAuditArtifactSnapshot(
   pi: Pick<PiExtensionApiLike, "appendEntry">,
   snapshot: AuditArtifactSnapshot,
@@ -44,8 +50,34 @@ export function restoreAuditArtifactSnapshot(
 export function renderMissingAuditArtifactSnapshotMessage(auditId: string): string {
   return [
     `No validated audit snapshot is stored for audit \`${auditId}\` on this branch.`,
-    "Use the ozcar_store_audit_snapshot tool before /ozcar-audit-export.",
+    "Use /ozcar-audit-checkpoint <snapshot.json> or ozcar_store_audit_snapshot before /ozcar-audit-export.",
   ].join("\n");
+}
+
+export function validateAuditArtifactSnapshot(snapshot: unknown): AuditArtifactSnapshot {
+  const result = AuditArtifactSnapshotSchema.safeParse(snapshot);
+  if (!result.success) {
+    throw new Error(`Invalid audit snapshot: ${formatIssues(result.error.issues)}.`);
+  }
+
+  return result.data;
+}
+
+export function storeAuditArtifactSnapshot(
+  pi: Pick<PiExtensionApiLike, "appendEntry">,
+  snapshot: AuditArtifactSnapshot,
+  state: RestoredAuditState,
+): StoredAuditArtifactSnapshotResult {
+  const storedSnapshot = checkpointAuditArtifactSnapshot(pi, snapshot, state);
+  const validatedFindings = storedSnapshot.findings.filter(
+    (bundle) => bundle.validation.outcome === "validated",
+  ).length;
+
+  return {
+    findingCount: storedSnapshot.findings.length,
+    storedSnapshot,
+    validatedFindings,
+  };
 }
 
 export function alignSnapshotToActiveAuditState(

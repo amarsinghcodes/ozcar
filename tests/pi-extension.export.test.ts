@@ -5,10 +5,12 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  OZCAR_AUDIT_CHECKPOINT_COMMAND,
   OZCAR_AUDIT_EXPORT_COMMAND,
   OZCAR_AUDIT_ARTIFACT_SNAPSHOT_CUSTOM_TYPE,
   OZCAR_STORE_AUDIT_SNAPSHOT_TOOL,
   createAuditRuntimeState,
+  registerAuditCheckpointCommand,
   registerAuditExportCommand,
   registerAuditArtifactSnapshotTool,
   type PiCommandRegistrationLike,
@@ -92,6 +94,113 @@ describe("ozcar Phase 6 export command", () => {
     expect(payload.findings.map((finding) => finding.findingId)).toEqual(["reentrant-withdraw"]);
   });
 
+  it("exports authoritative reported metrics when the stored snapshot contract includes them", async () => {
+    const workspaceRoot = await createWorkspace();
+    const snapshot = withReportedMetrics(createAuditSnapshot(), {
+      durationSeconds: 4.2,
+      costUsd: 0.031,
+      inputTokens: 321,
+      outputTokens: 123,
+    });
+    const runtime = createActiveRuntimeState("payments-vault", "Investigate payments vault invariants");
+    const harness = createHarness(workspaceRoot);
+    registerPhase4Surfaces(harness, runtime);
+
+    const tool = harness.toolRegistry.get(OZCAR_STORE_AUDIT_SNAPSHOT_TOOL);
+    await tool?.execute(
+      "tool-2",
+      {
+        snapshot,
+      },
+      undefined,
+      undefined,
+      harness.ctx,
+    );
+
+    const command = harness.commandRegistry.get(OZCAR_AUDIT_EXPORT_COMMAND);
+    await command?.handler("", harness.ctx);
+
+    const exportFile = path.join(
+      workspaceRoot,
+      ".ai-auditor",
+      "audits",
+      "payments-vault",
+      "exports",
+      "findings.json",
+    );
+    const payload = JSON.parse(await fs.readFile(exportFile, "utf8")) as {
+      reportedMetrics?: {
+        costUsd?: number;
+        durationSeconds?: number;
+        inputTokens?: number;
+        outputTokens?: number;
+      };
+    };
+
+    expect(payload.reportedMetrics).toEqual({
+      costUsd: 0.031,
+      durationSeconds: 4.2,
+      inputTokens: 321,
+      outputTokens: 123,
+    });
+    expect(harness.ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("Authoritative reported metrics: duration=4.2s; cost=$0.031; tokens=321 in / 123 out."),
+      "success",
+    );
+    expect(harness.ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("Measured wall-clock stays external."),
+      "success",
+    );
+  });
+
+  it("stores a snapshot from /ozcar-audit-checkpoint and then exports it", async () => {
+    const workspaceRoot = await createWorkspace();
+    const snapshot = createAuditSnapshot();
+    const runtime = createActiveRuntimeState("payments-vault", "Investigate payments vault invariants");
+    const harness = createHarness(workspaceRoot);
+    registerPhase4Surfaces(harness, runtime);
+
+    const snapshotFile = path.join(workspaceRoot, "phase4-snapshot.json");
+    await fs.writeFile(snapshotFile, JSON.stringify(snapshot, null, 2), "utf8");
+
+    const checkpoint = harness.commandRegistry.get(OZCAR_AUDIT_CHECKPOINT_COMMAND);
+    await checkpoint?.handler("phase4-snapshot.json", harness.ctx);
+
+    expect(harness.allEntries.at(-1)).toMatchObject({
+      customType: OZCAR_AUDIT_ARTIFACT_SNAPSHOT_CUSTOM_TYPE,
+      data: expect.objectContaining({
+        audit: expect.objectContaining({
+          auditId: "payments-vault",
+          focus: "Investigate payments vault invariants",
+        }),
+      }),
+      type: "custom",
+    });
+    expect(harness.ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("Snapshot file: phase4-snapshot.json"),
+      "success",
+    );
+    expect(harness.ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("Next: /ozcar-audit-export"),
+      "success",
+    );
+
+    const command = harness.commandRegistry.get(OZCAR_AUDIT_EXPORT_COMMAND);
+    await command?.handler("", harness.ctx);
+
+    const exportFile = path.join(
+      workspaceRoot,
+      ".ai-auditor",
+      "audits",
+      "payments-vault",
+      "exports",
+      "findings.json",
+    );
+    const payload = JSON.parse(await fs.readFile(exportFile, "utf8")) as { findings: Array<{ findingId: string }> };
+
+    expect(payload.findings.map((finding) => finding.findingId)).toEqual(["reentrant-withdraw"]);
+  });
+
   it("warns when the current branch has no stored audit snapshot", async () => {
     const workspaceRoot = await createWorkspace();
     const runtime = createActiveRuntimeState("payments-vault", "Investigate payments vault invariants");
@@ -105,6 +214,10 @@ describe("ozcar Phase 6 export command", () => {
       fs.access(path.join(workspaceRoot, ".ai-auditor", "audits", "payments-vault", "audit.json")),
     ).rejects.toBeDefined();
     expect(harness.ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining("No validated audit snapshot is stored"), "warning");
+    expect(harness.ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("/ozcar-audit-checkpoint"),
+      "warning",
+    );
   });
 
   it("fails closed when the latest stored snapshot belongs to another audit", async () => {
@@ -123,6 +236,21 @@ describe("ozcar Phase 6 export command", () => {
     ).rejects.toBeDefined();
     expect(harness.ctx.ui.notify).toHaveBeenCalledWith(
       expect.stringContaining("does not match current branch audit"),
+      "warning",
+    );
+  });
+
+  it("warns when /ozcar-audit-checkpoint points at a missing snapshot file", async () => {
+    const workspaceRoot = await createWorkspace();
+    const runtime = createActiveRuntimeState("payments-vault", "Investigate payments vault invariants");
+    const harness = createHarness(workspaceRoot);
+    registerPhase4Surfaces(harness, runtime);
+
+    const checkpoint = harness.commandRegistry.get(OZCAR_AUDIT_CHECKPOINT_COMMAND);
+    await checkpoint?.handler("missing-snapshot.json", harness.ctx);
+
+    expect(harness.ctx.ui.notify).toHaveBeenCalledWith(
+      expect.stringContaining("Snapshot file not found"),
       "warning",
     );
   });
@@ -234,6 +362,18 @@ function registerPhase4Surfaces(
   harness: ReturnType<typeof createHarness>,
   runtime: ReturnType<typeof createAuditRuntimeState>,
 ): void {
+  registerAuditCheckpointCommand(
+    {
+      appendEntry(customType, data) {
+        harness.appendCustomEntry(customType, data);
+      },
+      registerCommand(name, options) {
+        harness.commandRegistry.set(name, options);
+      },
+    },
+    runtime,
+  );
+
   registerAuditExportCommand(
     {
       registerCommand(name, options) {
@@ -311,5 +451,18 @@ function createAuditSnapshot(): AuditArtifactSnapshot {
         },
       },
     ],
+  };
+}
+
+function withReportedMetrics(
+  snapshot: AuditArtifactSnapshot,
+  reportedMetrics: NonNullable<AuditArtifactSnapshot["audit"]["reportedMetrics"]>,
+): AuditArtifactSnapshot {
+  return {
+    ...snapshot,
+    audit: {
+      ...snapshot.audit,
+      reportedMetrics,
+    },
   };
 }
