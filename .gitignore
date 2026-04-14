@@ -32,7 +32,7 @@ Thumbs.db
 .continue/
 .windsurf/
 .agents/
-.pi/
+# Keep the packaged Pi extension surface versioned.
 CLAUDE.local.md
 .claude/settings.local.json
 .aider*
